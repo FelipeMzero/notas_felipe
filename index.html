@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle Acadêmico BSI (Abas)</title>
+    <title>Controle Acadêmico BSI (Híbrido)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React Dependencies (Versões fixas) -->
+    <!-- React Dependencies -->
     <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Ícones Lucide (Vanilla JS) -->
-    <script src="https://unpkg.com/lucide@0.263.1"></script>
+    <!-- Ícones Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
@@ -43,14 +43,58 @@
 <body>
     <div id="root"></div>
 
-    <script>
-        // Removido window.INITIAL_DATA hardcoded para forçar o carregamento via API
-    </script>
-
-    {% raw %}
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
+
+        // --- DADOS PADRÃO (Fallback para modo Offline) ---
+        const DEFAULT_DATA = [
+            {"codigo": "BSI0007", "nome": "ESTRUTURA DE DADOS I", "semestre": 2, "n1": 8.6, "n2": 9.5, "n3": 9.5, "rec": 0, "media": 9.2, "status": "APROVADO"},
+            {"codigo": "BSI0001", "nome": "INTRODUÇÃO A SISTEMAS DE INFORMAÇÃO", "semestre": 1, "n1": 9.2, "n2": 8.5, "n3": 9.5, "rec": 0, "media": 9.1, "status": "APROVADO"},
+            {"codigo": "BSI0005", "nome": "METODOLOGIA CIENTÍFICA", "semestre": 1, "n1": 6.5, "n2": 7.0, "n3": 2.0, "rec": 5.0, "media": 6.2, "status": "APROVADO"},
+            {"codigo": "BSI0003", "nome": "ORGANIZAÇÃO DE COMPUTADORES", "semestre": 1, "n1": 5.0, "n2": 10.0, "n3": 9.0, "rec": 0, "media": 8.0, "status": "APROVADO"},
+            {"codigo": "CORI0082", "nome": "PROGRAMAÇÃO", "semestre": 1, "n1": 10.0, "n2": 4.0, "n3": 9.0, "rec": 0, "media": 7.7, "status": "APROVADO"},
+            {"codigo": "CORI0043", "nome": "SISTEMAS OPERACIONAIS", "semestre": 3, "n1": 9.5, "n2": 8.0, "n3": 8.0, "rec": 0, "media": 8.5, "status": "APROVADO"},
+            {"codigo": "BSI0008", "nome": "ARQUITETURA DE COMPUTADORES", "semestre": 2, "n1": 7.5, "n2": 9.8, "n3": 8.5, "rec": 0, "media": 8.6, "status": "APROVADO"},
+            {"codigo": "BSI0010", "nome": "CÁLCULO I", "semestre": 2, "n1": 8.4, "n2": 6.8, "n3": 8.0, "rec": 0, "media": 7.7, "status": "APROVADO"},
+            {"codigo": "CORI0042", "nome": "ESTRUTURA DE DADOS II", "semestre": 3, "n1": 2.0, "n2": 2.5, "n3": 9.0, "rec": 6.5, "media": 6.0, "status": "APROVADO"},
+            {"codigo": "CORI0041", "nome": "LABORATÓRIO DE PROGRAMAÇÃO", "semestre": 3, "n1": 10.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 10.0, "status": "APROVADO"},
+            {"codigo": "BSI0002", "nome": "MATEMÁTICA DISCRETA E LÓGICA MATEMÁTICA", "semestre": 1, "n1": 8.0, "n2": 4.0, "n3": 7.0, "rec": 0, "media": 6.3, "status": "APROVADO"},
+            {"codigo": "BSI0009", "nome": "ÁLGEBRA LINEAR", "semestre": 2, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "REPROVADO"},
+            {"codigo": "CORI0050", "nome": "BANCO DE DADOS", "semestre": 4, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
+            {"codigo": "CORI0051", "nome": "ENGENHARIA DE REQUISITOS", "semestre": 4, "n1": 6.1, "n2": 9.5, "n3": 8.5, "rec": 0, "media": 8.0, "status": "APROVADO"},
+            {"codigo": "CORI0040", "nome": "GEOMETRIA ANALÍTICA", "semestre": 3, "n1": 6.7, "n2": 4.0, "n3": 4.0, "rec": 2.5, "media": 4.4, "status": "REPROVADO"},
+            {"codigo": "BSI0006", "nome": "PROGRAMAÇÃO ORIENTADA A OBJETOS", "semestre": 2, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "REPROVADO"},
+            {"codigo": "CORI0049", "nome": "LINGUAGENS FORMAIS E AUTÔMATOS", "semestre": 4, "n1": 8.0, "n2": 8.2, "n3": 0.0, "rec": 0, "media": 5.4, "status": "CURSANDO"},
+            {"codigo": "CORI0053", "nome": "PROBABILIDADE E ESTATÍSTICA", "semestre": 4, "n1": 9.7, "n2": 10.0, "n3": 9.8, "rec": 0, "media": 9.8, "status": "APROVADO"},
+            {"codigo": "CORI0057", "nome": "PROCESSAMENTO DE IMAGEM", "semestre": 5, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
+            {"codigo": "CORI0054", "nome": "PROGRAMAÇÃO PARA WEB", "semestre": 5, "n1": 10.0, "n2": 2.5, "n3": 10.0, "rec": 0, "media": 7.5, "status": "APROVADO"},
+            {"codigo": "CORI0056", "nome": "REDES DE COMPUTADORES", "semestre": 5, "n1": 6.0, "n2": 9.0, "n3": 10.0, "rec": 0, "media": 8.3, "status": "APROVADO"},
+            {"codigo": "CORI0078", "nome": "INTELIGÊNCIA ARTIFICIAL", "semestre": 8, "n1": 10.0, "n2": 4.0, "n3": 10.0, "rec": 0, "media": 8.0, "status": "APROVADO"},
+            {"codigo": "CORI0074", "nome": "INTRODUÇÃO À GOVERNANÇA DE TI", "semestre": 8, "n1": 9.5, "n2": 9.8, "n3": 9.2, "rec": 0, "media": 9.5, "status": "APROVADO"},
+            {"codigo": "CORI0080", "nome": "SEGURANÇA DA INFORMAÇÃO", "semestre": 8, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
+            {"codigo": "CORI0048", "nome": "CÁLCULO II", "semestre": 3, "n1": 9.5, "n2": 4.5, "n3": 0.0, "rec": 0, "media": 4.7, "status": "CURSANDO"},
+            {"codigo": "CORI0052", "nome": "SISTEMAS DE INOVAÇÃO E EMPREENDEDORISMO", "semestre": 4, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0055", "nome": "ANÁLISE E PROJETO DE SOFTWARE", "semestre": 5, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0058", "nome": "ADMINISTRAÇÃO DA INFORMÁTICA", "semestre": 5, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0059", "nome": "DESENVOLVIMENTO PARA DISPOSITIVOS MÓVEIS", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0060", "nome": "INTERAÇÃO HUMANO-COMPUTADOR", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0061", "nome": "COMPUTAÇÃO GRÁFICA", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0062", "nome": "GERÊNCIA DE SERVIÇOS DE TI", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0063", "nome": "GERÊNCIA DE REDES", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0064", "nome": "PSICOLOGIA APLICADA À INFORMÁTICA", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0066", "nome": "TESTE E QUALIDADE DE SOFTWARE", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0067", "nome": "AVALIAÇÃO DE DESEMPENHO", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0068", "nome": "TÓPICOS INTEGRADORES", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0069", "nome": "PROJETOS DE DESENVOLVIMENTO APLICADO", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0075", "nome": "TCC I", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0070", "nome": "ESTÁGIO SUPERVISIONADO", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0072", "nome": "GERÊNCIA DE PROJETOS", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0073", "nome": "SISTEMAS DISTRIBUÍDOS", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "CORI0079", "nome": "TCC II", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "ENADE-I", "nome": "ENADE INGRESSANTE", "semestre": 9, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
+            {"codigo": "ENADE-C", "nome": "ENADE CONCLUINTE", "semestre": 9, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"}
+        ];
 
         // Configurações de Cores
         const COLORS = {
@@ -77,6 +121,9 @@
                     }
                 }
             }, [name, size, className]);
+
+            // Fallback simples se a biblioteca não carregar
+            if (typeof window.lucide === 'undefined') return <span></span>;
 
             return <span ref={ref} className="inline-flex items-center justify-center" />;
         };
@@ -175,39 +222,58 @@
             const [activeTab, setActiveTab] = useState('dashboard');
             const [searchTerm, setSearchTerm] = useState('');
             const [lastInteraction, setLastInteraction] = useState(Date.now());
+            const [offlineMode, setOfflineMode] = useState(false);
 
-            // --- CARREGAR DADOS DO SERVIDOR ---
+            // --- CARREGAR DADOS ---
             const loadData = async () => {
                 try {
+                    // Tenta buscar do servidor Python
                     const response = await fetch('/api/dados');
                     if (response.ok) {
                         const data = await response.json();
                         setDisciplines(data);
+                        setOfflineMode(false);
                     } else {
-                        console.error('Falha ao carregar dados');
+                        throw new Error('Servidor não respondeu OK');
                     }
                 } catch (error) {
-                    console.error('Erro de conexão:', error);
+                    // Fallback para LocalStorage ou Dados Padrão (Modo Offline)
+                    console.warn('Backend indisponível, usando modo offline:', error);
+                    const saved = localStorage.getItem('academico_data');
+                    if (saved) {
+                        setDisciplines(JSON.parse(saved));
+                    } else {
+                        setDisciplines(DEFAULT_DATA);
+                    }
+                    setOfflineMode(true);
                 }
             };
 
             // Carrega ao iniciar
             useEffect(() => {
                 loadData();
-                lucide.createIcons();
+                // Inicializar ícones se disponível
+                if (window.lucide) window.lucide.createIcons();
             }, []);
 
-            // --- AUTO REFRESH (5 MIN) ---
+            // Salva no LocalStorage como backup
+            useEffect(() => {
+                if (disciplines.length > 0) {
+                    localStorage.setItem('academico_data', JSON.stringify(disciplines));
+                }
+            }, [disciplines]);
+
+            // --- AUTO REFRESH ---
             useEffect(() => {
                 const interval = setInterval(() => {
                     const now = Date.now();
                     if (now - lastInteraction > 300000) {
                         window.location.reload();
-                    } else {
-                        // Sincroniza silenciosamente se ativo
+                    } else if (!offlineMode) {
+                        // Sincroniza silenciosamente se online
                         loadData();
                     }
-                }, 30000); // Verifica a cada 30s
+                }, 30000); 
 
                 const updateInteraction = () => setLastInteraction(Date.now());
                 window.addEventListener('mousemove', updateInteraction);
@@ -217,24 +283,9 @@
                     window.removeEventListener('mousemove', updateInteraction);
                     window.removeEventListener('keypress', updateInteraction);
                 }
-            }, [lastInteraction]);
+            }, [lastInteraction, offlineMode]);
 
-            // --- LÓGICA DE NEGÓCIO ---
-
-            const stats = useMemo(() => {
-                return disciplines.reduce((acc, curr) => {
-                    acc[curr.status] = (acc[curr.status] || 0) + 1;
-                    return acc;
-                }, {});
-            }, [disciplines]);
-
-            const pieData = [
-                { name: 'Aprovado', value: stats['APROVADO'] || 0 },
-                { name: 'Reprovado', value: stats['REPROVADO'] || 0 },
-                { name: 'Cursando', value: stats['CURSANDO'] || 0 },
-                { name: 'Pendente', value: stats['PENDENTE'] || 0 },
-            ];
-
+            // --- CÁLCULO LOCAL ---
             const calculateLocalStats = (disc) => {
                 let n1 = parseFloat(disc.n1) || 0;
                 let n2 = parseFloat(disc.n2) || 0;
@@ -249,10 +300,12 @@
                     }
                 }
                 
-                const media = (notas.reduce((a, b) => a + b, 0) / 3).toFixed(2);
+                const mediaVal = (notas.reduce((a, b) => a + b, 0) / 3);
+                const media = mediaVal.toFixed(2);
+                
                 let status = "PENDENTE";
                 if (n1 === 0 && n2 === 0 && n3 === 0 && rec === 0) status = "PENDENTE";
-                else if (parseFloat(media) >= 6.0) status = "APROVADO";
+                else if (mediaVal >= 6.0) status = "APROVADO";
                 else if (n3 === 0 && rec === 0) status = "CURSANDO";
                 else status = "REPROVADO";
                 
@@ -263,7 +316,7 @@
                 const cleanValue = value.replace(',', '.');
                 if (cleanValue !== "" && isNaN(cleanValue)) return;
 
-                // Atualização Otimista (Visual Imediato)
+                // Atualização Otimista
                 setDisciplines(prev => prev.map(d => {
                     if (d.codigo === codigo) {
                         const updated = { ...d, [field]: cleanValue };
@@ -273,45 +326,38 @@
                     return d;
                 }));
 
-                // Persistência no Servidor
-                try {
-                    const res = await fetch('/api/atualizar', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code: codigo, field, value: cleanValue })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        // Confirmação do servidor (preserva valor digitado, atualiza calculados)
-                        setDisciplines(prev => prev.map(d => 
-                            d.codigo === codigo ? { ...d, media: result.data.media, status: result.data.status } : d
-                        ));
+                // Se estiver online, tenta salvar no servidor
+                if (!offlineMode) {
+                    try {
+                        const res = await fetch('/api/atualizar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: codigo, field, value: cleanValue })
+                        });
+                        const result = await res.json();
+                        if (result.success) {
+                            setDisciplines(prev => prev.map(d => 
+                                d.codigo === codigo ? { ...d, media: result.data.media, status: result.data.status } : d
+                            ));
+                        }
+                    } catch (error) { 
+                        console.error("Erro de sincronização:", error);
+                        setOfflineMode(true); // Fallback para offline se falhar
                     }
-                } catch (error) { 
-                    console.error("Erro ao salvar nota:", error); 
                 }
             };
 
-            // Filtragem de Dados por Aba
+            // Filtragem
             const getFilteredDisciplines = () => {
                 let filtered = [];
                 const searchLower = searchTerm.toLowerCase();
 
                 switch(activeTab) {
-                    case 'aprovadas':
-                        filtered = disciplines.filter(d => d.status === 'APROVADO');
-                        break;
-                    case 'reprovadas':
-                        filtered = disciplines.filter(d => d.status === 'REPROVADO');
-                        break;
-                    case 'cursando':
-                        filtered = disciplines.filter(d => d.status === 'CURSANDO');
-                        break;
-                    case 'geral':
-                        filtered = [...disciplines];
-                        break;
-                    default:
-                        return [];
+                    case 'aprovadas': filtered = disciplines.filter(d => d.status === 'APROVADO'); break;
+                    case 'reprovadas': filtered = disciplines.filter(d => d.status === 'REPROVADO'); break;
+                    case 'cursando': filtered = disciplines.filter(d => d.status === 'CURSANDO'); break;
+                    case 'geral': filtered = [...disciplines]; break;
+                    default: return [];
                 }
 
                 if (searchTerm) {
@@ -320,9 +366,23 @@
                         d.codigo.toLowerCase().includes(searchLower)
                     );
                 }
-
                 return filtered;
             };
+
+            // Stats
+            const stats = useMemo(() => {
+                return disciplines.reduce((acc, curr) => {
+                    acc[curr.status] = (acc[curr.status] || 0) + 1;
+                    return acc;
+                }, {});
+            }, [disciplines]);
+
+            const pieData = [
+                { name: 'Aprovado', value: stats['APROVADO'] || 0, fill: '#10b981' },
+                { name: 'Reprovado', value: stats['REPROVADO'] || 0, fill: '#ef4444' },
+                { name: 'Cursando', value: stats['CURSANDO'] || 0, fill: '#f59e0b' },
+                { name: 'Pendente', value: stats['PENDENTE'] || 0, fill: '#475569' },
+            ];
 
             const filteredList = getFilteredDisciplines();
 
@@ -336,9 +396,10 @@
                             <h1 className="text-2xl font-bold text-blue-500 flex items-center gap-2">
                                 <LucideIcon name="BookOpen" className="text-blue-500" />
                                 Sistema Acadêmico
+                                {offlineMode && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded ml-2 border border-amber-500/30">Modo Offline</span>}
                             </h1>
                             <div className="flex gap-2">
-                                <a href="/exportar_csv" className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition">
+                                <a href={offlineMode ? "#" : "/exportar_csv"} className={`text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition ${offlineMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                     Baixar Relatório
                                 </a>
                             </div>
@@ -346,39 +407,11 @@
 
                         {/* Navegação de Abas */}
                         <div className="max-w-7xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto no-scrollbar">
-                            <TabButton 
-                                active={activeTab === 'dashboard'} 
-                                onClick={() => setActiveTab('dashboard')} 
-                                iconName="Home" 
-                                label="Dashboard" 
-                            />
-                            <TabButton 
-                                active={activeTab === 'aprovadas'} 
-                                onClick={() => { setActiveTab('aprovadas'); setSearchTerm(''); }} 
-                                iconName="CheckCircle" 
-                                label="Aprovadas" 
-                                count={stats['APROVADO']}
-                            />
-                            <TabButton 
-                                active={activeTab === 'cursando'} 
-                                onClick={() => { setActiveTab('cursando'); setSearchTerm(''); }} 
-                                iconName="Clock" 
-                                label="Cursando" 
-                                count={stats['CURSANDO']}
-                            />
-                            <TabButton 
-                                active={activeTab === 'reprovadas'} 
-                                onClick={() => { setActiveTab('reprovadas'); setSearchTerm(''); }} 
-                                iconName="XCircle" 
-                                label="Reprovadas" 
-                                count={stats['REPROVADO']}
-                            />
-                            <TabButton 
-                                active={activeTab === 'geral'} 
-                                onClick={() => { setActiveTab('geral'); setSearchTerm(''); }} 
-                                iconName="BookOpen" 
-                                label="Geral" 
-                            />
+                            <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} iconName="Home" label="Dashboard" />
+                            <TabButton active={activeTab === 'aprovadas'} onClick={() => { setActiveTab('aprovadas'); setSearchTerm(''); }} iconName="CheckCircle" label="Aprovadas" count={stats['APROVADO']} />
+                            <TabButton active={activeTab === 'cursando'} onClick={() => { setActiveTab('cursando'); setSearchTerm(''); }} iconName="Clock" label="Cursando" count={stats['CURSANDO']} />
+                            <TabButton active={activeTab === 'reprovadas'} onClick={() => { setActiveTab('reprovadas'); setSearchTerm(''); }} iconName="XCircle" label="Reprovadas" count={stats['REPROVADO']} />
+                            <TabButton active={activeTab === 'geral'} onClick={() => { setActiveTab('geral'); setSearchTerm(''); }} iconName="BookOpen" label="Geral" />
                         </div>
                     </header>
 
@@ -388,40 +421,17 @@
                         {activeTab === 'dashboard' && (
                             <div className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Disciplinas Aprovadas</p>
-                                                <h3 className="text-4xl font-bold text-emerald-400 mt-2">{stats['APROVADO'] || 0}</h3>
-                                            </div>
-                                            <div className="p-3 bg-emerald-500/10 rounded-lg">
-                                                <LucideIcon name="CheckCircle" className="text-emerald-500" size={24} />
-                                            </div>
-                                        </div>
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex justify-between">
+                                        <div><p className="text-slate-400 text-xs uppercase">Aprovadas</p><h3 className="text-4xl font-bold text-emerald-400 mt-2">{stats['APROVADO'] || 0}</h3></div>
+                                        <div className="p-3 bg-emerald-500/10 rounded-lg"><LucideIcon name="CheckCircle" className="text-emerald-500" size={24} /></div>
                                     </div>
-
-                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Cursando Agora</p>
-                                                <h3 className="text-4xl font-bold text-amber-400 mt-2">{stats['CURSANDO'] || 0}</h3>
-                                            </div>
-                                            <div className="p-3 bg-amber-500/10 rounded-lg">
-                                                <LucideIcon name="Clock" className="text-amber-500" size={24} />
-                                            </div>
-                                        </div>
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex justify-between">
+                                        <div><p className="text-slate-400 text-xs uppercase">Cursando</p><h3 className="text-4xl font-bold text-amber-400 mt-2">{stats['CURSANDO'] || 0}</h3></div>
+                                        <div className="p-3 bg-amber-500/10 rounded-lg"><LucideIcon name="Clock" className="text-amber-500" size={24} /></div>
                                     </div>
-
-                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Aguardando / Pendente</p>
-                                                <h3 className="text-4xl font-bold text-slate-300 mt-2">{stats['PENDENTE'] || 0}</h3>
-                                            </div>
-                                            <div className="p-3 bg-slate-700/30 rounded-lg">
-                                                <LucideIcon name="BookOpen" className="text-slate-400" size={24} />
-                                            </div>
-                                        </div>
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex justify-between">
+                                        <div><p className="text-slate-400 text-xs uppercase">Pendente</p><h3 className="text-4xl font-bold text-slate-300 mt-2">{stats['PENDENTE'] || 0}</h3></div>
+                                        <div className="p-3 bg-slate-700/30 rounded-lg"><LucideIcon name="BookOpen" className="text-slate-400" size={24} /></div>
                                     </div>
                                 </div>
 
@@ -432,7 +442,7 @@
                                             <PieChart>
                                                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                                                     {pieData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={COLORS[entry.name.toUpperCase()]} />
+                                                        <Cell key={`cell-${index}`} fill={entry.fill} />
                                                     ))}
                                                 </Pie>
                                                 <Tooltip contentStyle={{backgroundColor: '#1e293b', border: 'none', borderRadius: '8px'}} />
@@ -451,14 +461,8 @@
                                             ) : (
                                                 disciplines.filter(d => d.status === 'REPROVADO').map(disc => (
                                                     <div key={disc.codigo} className="bg-slate-900/50 p-4 rounded border-l-4 border-red-500 flex justify-between items-center">
-                                                        <div>
-                                                            <span className="font-bold text-slate-200 block">{disc.nome}</span>
-                                                            <span className="text-xs text-slate-500 font-mono">{disc.codigo}</span>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className="text-red-400 font-bold block">{disc.media}</span>
-                                                            <span className="text-xs text-slate-500">Média Final</span>
-                                                        </div>
+                                                        <div><span className="font-bold text-slate-200 block">{disc.nome}</span><span className="text-xs text-slate-500 font-mono">{disc.codigo}</span></div>
+                                                        <div className="text-right"><span className="text-red-400 font-bold block">{disc.media}</span><span className="text-xs text-slate-500">Média Final</span></div>
                                                     </div>
                                                 ))
                                             )}
@@ -468,39 +472,22 @@
                             </div>
                         )}
 
-                        {/* CONTEÚDO: LISTAS (Aprovadas, Cursando, Reprovadas, Geral) */}
+                        {/* CONTEÚDO: LISTAS */}
                         {activeTab !== 'dashboard' && (
                             <div className="space-y-6 fade-in">
                                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800 p-4 rounded-lg border border-slate-700">
                                     <div>
                                         <h2 className="text-xl font-bold text-white capitalize">{activeTab}</h2>
-                                        <p className="text-slate-400 text-sm">
-                                            {filteredList.length} disciplina(s) encontrada(s)
-                                        </p>
+                                        <p className="text-slate-400 text-sm">{filteredList.length} disciplina(s) encontrada(s)</p>
                                     </div>
-                                    
-                                    {/* Barra de Busca */}
                                     <div className="relative w-full md:w-96">
-                                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none">
-                                            <LucideIcon name="Search" size={18} />
-                                        </div>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Pesquisar por nome ou código..." 
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                            className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
-                                        />
+                                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none"><LucideIcon name="Search" size={18} /></div>
+                                        <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-blue-500 transition-colors" />
                                     </div>
                                 </div>
-
-                                <DisciplineTable 
-                                    disciplines={filteredList} 
-                                    onGradeChange={handleGradeChange} 
-                                />
+                                <DisciplineTable disciplines={filteredList} onGradeChange={handleGradeChange} />
                             </div>
                         )}
-
                     </main>
                 </div>
             );
@@ -509,6 +496,5 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-    {% endraw %}
 </body>
 </html>
