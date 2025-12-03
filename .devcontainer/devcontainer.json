@@ -1,0 +1,5 @@
+{
+    "name": "Python Flask App",
+    "forwardPorts": [5000],
+    "postStartCommand": "python app.py"
+}
