@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle Acadêmico BSI (Híbrido)</title>
+    <title>Controle Acadêmico BSI (JSON)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,11 +31,9 @@
         }
         .input-rec:focus { outline: 2px solid #eab308; border-color: transparent; }
         
-        /* Animação suave nas abas */
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Esconder scrollbar nas abas mas permitir scroll */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -46,55 +44,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
-
-        // --- DADOS PADRÃO (Fallback para modo Offline) ---
-        const DEFAULT_DATA = [
-            {"codigo": "BSI0007", "nome": "ESTRUTURA DE DADOS I", "semestre": 2, "n1": 8.6, "n2": 9.5, "n3": 9.5, "rec": 0, "media": 9.2, "status": "APROVADO"},
-            {"codigo": "BSI0001", "nome": "INTRODUÇÃO A SISTEMAS DE INFORMAÇÃO", "semestre": 1, "n1": 9.2, "n2": 8.5, "n3": 9.5, "rec": 0, "media": 9.1, "status": "APROVADO"},
-            {"codigo": "BSI0005", "nome": "METODOLOGIA CIENTÍFICA", "semestre": 1, "n1": 6.5, "n2": 7.0, "n3": 2.0, "rec": 5.0, "media": 6.2, "status": "APROVADO"},
-            {"codigo": "BSI0003", "nome": "ORGANIZAÇÃO DE COMPUTADORES", "semestre": 1, "n1": 5.0, "n2": 10.0, "n3": 9.0, "rec": 0, "media": 8.0, "status": "APROVADO"},
-            {"codigo": "CORI0082", "nome": "PROGRAMAÇÃO", "semestre": 1, "n1": 10.0, "n2": 4.0, "n3": 9.0, "rec": 0, "media": 7.7, "status": "APROVADO"},
-            {"codigo": "CORI0043", "nome": "SISTEMAS OPERACIONAIS", "semestre": 3, "n1": 9.5, "n2": 8.0, "n3": 8.0, "rec": 0, "media": 8.5, "status": "APROVADO"},
-            {"codigo": "BSI0008", "nome": "ARQUITETURA DE COMPUTADORES", "semestre": 2, "n1": 7.5, "n2": 9.8, "n3": 8.5, "rec": 0, "media": 8.6, "status": "APROVADO"},
-            {"codigo": "BSI0010", "nome": "CÁLCULO I", "semestre": 2, "n1": 8.4, "n2": 6.8, "n3": 8.0, "rec": 0, "media": 7.7, "status": "APROVADO"},
-            {"codigo": "CORI0042", "nome": "ESTRUTURA DE DADOS II", "semestre": 3, "n1": 2.0, "n2": 2.5, "n3": 9.0, "rec": 6.5, "media": 6.0, "status": "APROVADO"},
-            {"codigo": "CORI0041", "nome": "LABORATÓRIO DE PROGRAMAÇÃO", "semestre": 3, "n1": 10.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 10.0, "status": "APROVADO"},
-            {"codigo": "BSI0002", "nome": "MATEMÁTICA DISCRETA E LÓGICA MATEMÁTICA", "semestre": 1, "n1": 8.0, "n2": 4.0, "n3": 7.0, "rec": 0, "media": 6.3, "status": "APROVADO"},
-            {"codigo": "BSI0009", "nome": "ÁLGEBRA LINEAR", "semestre": 2, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "REPROVADO"},
-            {"codigo": "CORI0050", "nome": "BANCO DE DADOS", "semestre": 4, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
-            {"codigo": "CORI0051", "nome": "ENGENHARIA DE REQUISITOS", "semestre": 4, "n1": 6.1, "n2": 9.5, "n3": 8.5, "rec": 0, "media": 8.0, "status": "APROVADO"},
-            {"codigo": "CORI0040", "nome": "GEOMETRIA ANALÍTICA", "semestre": 3, "n1": 6.7, "n2": 4.0, "n3": 4.0, "rec": 2.5, "media": 4.4, "status": "REPROVADO"},
-            {"codigo": "BSI0006", "nome": "PROGRAMAÇÃO ORIENTADA A OBJETOS", "semestre": 2, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "REPROVADO"},
-            {"codigo": "CORI0049", "nome": "LINGUAGENS FORMAIS E AUTÔMATOS", "semestre": 4, "n1": 8.0, "n2": 8.2, "n3": 0.0, "rec": 0, "media": 5.4, "status": "CURSANDO"},
-            {"codigo": "CORI0053", "nome": "PROBABILIDADE E ESTATÍSTICA", "semestre": 4, "n1": 9.7, "n2": 10.0, "n3": 9.8, "rec": 0, "media": 9.8, "status": "APROVADO"},
-            {"codigo": "CORI0057", "nome": "PROCESSAMENTO DE IMAGEM", "semestre": 5, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
-            {"codigo": "CORI0054", "nome": "PROGRAMAÇÃO PARA WEB", "semestre": 5, "n1": 10.0, "n2": 2.5, "n3": 10.0, "rec": 0, "media": 7.5, "status": "APROVADO"},
-            {"codigo": "CORI0056", "nome": "REDES DE COMPUTADORES", "semestre": 5, "n1": 6.0, "n2": 9.0, "n3": 10.0, "rec": 0, "media": 8.3, "status": "APROVADO"},
-            {"codigo": "CORI0078", "nome": "INTELIGÊNCIA ARTIFICIAL", "semestre": 8, "n1": 10.0, "n2": 4.0, "n3": 10.0, "rec": 0, "media": 8.0, "status": "APROVADO"},
-            {"codigo": "CORI0074", "nome": "INTRODUÇÃO À GOVERNANÇA DE TI", "semestre": 8, "n1": 9.5, "n2": 9.8, "n3": 9.2, "rec": 0, "media": 9.5, "status": "APROVADO"},
-            {"codigo": "CORI0080", "nome": "SEGURANÇA DA INFORMAÇÃO", "semestre": 8, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
-            {"codigo": "CORI0048", "nome": "CÁLCULO II", "semestre": 3, "n1": 9.5, "n2": 4.5, "n3": 0.0, "rec": 0, "media": 4.7, "status": "CURSANDO"},
-            {"codigo": "CORI0052", "nome": "SISTEMAS DE INOVAÇÃO E EMPREENDEDORISMO", "semestre": 4, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0055", "nome": "ANÁLISE E PROJETO DE SOFTWARE", "semestre": 5, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0058", "nome": "ADMINISTRAÇÃO DA INFORMÁTICA", "semestre": 5, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0059", "nome": "DESENVOLVIMENTO PARA DISPOSITIVOS MÓVEIS", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0060", "nome": "INTERAÇÃO HUMANO-COMPUTADOR", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0061", "nome": "COMPUTAÇÃO GRÁFICA", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0062", "nome": "GERÊNCIA DE SERVIÇOS DE TI", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0063", "nome": "GERÊNCIA DE REDES", "semestre": 6, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0064", "nome": "PSICOLOGIA APLICADA À INFORMÁTICA", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0066", "nome": "TESTE E QUALIDADE DE SOFTWARE", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0067", "nome": "AVALIAÇÃO DE DESEMPENHO", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0068", "nome": "TÓPICOS INTEGRADORES", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0069", "nome": "PROJETOS DE DESENVOLVIMENTO APLICADO", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0075", "nome": "TCC I", "semestre": 7, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0070", "nome": "ESTÁGIO SUPERVISIONADO", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0072", "nome": "GERÊNCIA DE PROJETOS", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0073", "nome": "SISTEMAS DISTRIBUÍDOS", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "CORI0079", "nome": "TCC II", "semestre": 8, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "ENADE-I", "nome": "ENADE INGRESSANTE", "semestre": 9, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"},
-            {"codigo": "ENADE-C", "nome": "ENADE CONCLUINTE", "semestre": 9, "n1": 0, "n2": 0, "n3": 0, "rec": 0, "media": 0.0, "status": "PENDENTE"}
-        ];
 
         // Configurações de Cores
         const COLORS = {
@@ -107,29 +56,18 @@
         // --- COMPONENTE DE ÍCONE ---
         const LucideIcon = ({ name, size = 18, className = "" }) => {
             const ref = useRef(null);
-
             useEffect(() => {
                 if (window.lucide && window.lucide.icons && window.lucide.icons[name]) {
                     const svg = window.lucide.icons[name].toSvg({
-                        class: className,
-                        width: size,
-                        height: size,
-                        "stroke-width": 2
+                        class: className, width: size, height: size, "stroke-width": 2
                     });
-                    if (ref.current) {
-                        ref.current.innerHTML = svg;
-                    }
+                    if (ref.current) ref.current.innerHTML = svg;
                 }
             }, [name, size, className]);
-
-            // Fallback simples se a biblioteca não carregar
-            if (typeof window.lucide === 'undefined') return <span></span>;
-
             return <span ref={ref} className="inline-flex items-center justify-center" />;
         };
 
-        // --- COMPONENTES AUXILIARES ---
-
+        // --- COMPONENTES UI ---
         const StatusBadge = ({ status }) => {
             const styles = {
                 "APROVADO": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -166,7 +104,7 @@
         // Tabela de Disciplinas Reutilizável
         const DisciplineTable = ({ disciplines, onGradeChange }) => {
             if (disciplines.length === 0) {
-                return <div className="p-8 text-center text-slate-500">Nenhuma disciplina encontrada ou carregando...</div>;
+                return <div className="p-8 text-center text-slate-500">Nenhum dado carregado. Verifique se o servidor Python está rodando.</div>;
             }
 
             return (
@@ -222,58 +160,46 @@
             const [activeTab, setActiveTab] = useState('dashboard');
             const [searchTerm, setSearchTerm] = useState('');
             const [lastInteraction, setLastInteraction] = useState(Date.now());
-            const [offlineMode, setOfflineMode] = useState(false);
+            const [connectionError, setConnectionError] = useState(false);
+            const [isLoading, setIsLoading] = useState(true);
 
-            // --- CARREGAR DADOS ---
+            // --- CARREGAR DADOS DO SERVIDOR (Apenas JSON) ---
             const loadData = async () => {
                 try {
-                    // Tenta buscar do servidor Python
                     const response = await fetch('/api/dados');
-                    if (response.ok) {
-                        const data = await response.json();
-                        setDisciplines(data);
-                        setOfflineMode(false);
-                    } else {
-                        throw new Error('Servidor não respondeu OK');
-                    }
+                    if (!response.ok) throw new Error('Erro na resposta da API');
+                    
+                    const data = await response.json();
+                    setDisciplines(data);
+                    setConnectionError(false);
+                    setIsLoading(false);
                 } catch (error) {
-                    // Fallback para LocalStorage ou Dados Padrão (Modo Offline)
-                    console.warn('Backend indisponível, usando modo offline:', error);
-                    const saved = localStorage.getItem('academico_data');
-                    if (saved) {
-                        setDisciplines(JSON.parse(saved));
-                    } else {
-                        setDisciplines(DEFAULT_DATA);
-                    }
-                    setOfflineMode(true);
+                    console.error("Erro ao carregar do servidor:", error);
+                    setConnectionError(true);
+                    setIsLoading(false);
+                    // IMPORTANTE: Não fazemos fallback para dados locais. 
+                    // Se falhar, mostra erro para garantir consistência com o JSON.
                 }
             };
 
             // Carrega ao iniciar
             useEffect(() => {
                 loadData();
-                // Inicializar ícones se disponível
                 if (window.lucide) window.lucide.createIcons();
             }, []);
 
-            // Salva no LocalStorage como backup
-            useEffect(() => {
-                if (disciplines.length > 0) {
-                    localStorage.setItem('academico_data', JSON.stringify(disciplines));
-                }
-            }, [disciplines]);
-
-            // --- AUTO REFRESH ---
+            // --- AUTO REFRESH (5 MIN) ---
             useEffect(() => {
                 const interval = setInterval(() => {
                     const now = Date.now();
+                    // Se inativo por 5 min, recarrega a página completa
                     if (now - lastInteraction > 300000) {
                         window.location.reload();
-                    } else if (!offlineMode) {
-                        // Sincroniza silenciosamente se online
+                    } else {
+                        // Se ativo, apenas busca dados silenciosamente para manter sync
                         loadData();
                     }
-                }, 30000); 
+                }, 30000); // Polling a cada 30s
 
                 const updateInteraction = () => setLastInteraction(Date.now());
                 window.addEventListener('mousemove', updateInteraction);
@@ -283,9 +209,9 @@
                     window.removeEventListener('mousemove', updateInteraction);
                     window.removeEventListener('keypress', updateInteraction);
                 }
-            }, [lastInteraction, offlineMode]);
+            }, [lastInteraction]);
 
-            // --- CÁLCULO LOCAL ---
+            // --- LÓGICA DE CÁLCULO LOCAL (Feedback Visual) ---
             const calculateLocalStats = (disc) => {
                 let n1 = parseFloat(disc.n1) || 0;
                 let n2 = parseFloat(disc.n2) || 0;
@@ -316,7 +242,7 @@
                 const cleanValue = value.replace(',', '.');
                 if (cleanValue !== "" && isNaN(cleanValue)) return;
 
-                // Atualização Otimista
+                // 1. Atualização Otimista (Para UX fluida)
                 setDisciplines(prev => prev.map(d => {
                     if (d.codigo === codigo) {
                         const updated = { ...d, [field]: cleanValue };
@@ -326,24 +252,27 @@
                     return d;
                 }));
 
-                // Se estiver online, tenta salvar no servidor
-                if (!offlineMode) {
-                    try {
-                        const res = await fetch('/api/atualizar', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code: codigo, field, value: cleanValue })
-                        });
-                        const result = await res.json();
-                        if (result.success) {
-                            setDisciplines(prev => prev.map(d => 
-                                d.codigo === codigo ? { ...d, media: result.data.media, status: result.data.status } : d
-                            ));
-                        }
-                    } catch (error) { 
-                        console.error("Erro de sincronização:", error);
-                        setOfflineMode(true); // Fallback para offline se falhar
+                // 2. Envia para o Servidor (Obrigatório)
+                try {
+                    const res = await fetch('/api/atualizar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: codigo, field, value: cleanValue })
+                    });
+                    
+                    if (!res.ok) throw new Error('Falha ao salvar');
+
+                    const result = await res.json();
+                    if (result.success) {
+                        // 3. Atualiza com a confirmação real do servidor (JSON)
+                        setDisciplines(prev => prev.map(d => 
+                            d.codigo === codigo ? result.data : d
+                        ));
                     }
+                } catch (error) { 
+                    console.error("Erro crítico ao salvar:", error);
+                    setConnectionError(true);
+                    // Opcional: Reverter alteração se falhar o save, para garantir consistência
                 }
             };
 
@@ -386,6 +315,22 @@
 
             const filteredList = getFilteredDisciplines();
 
+            // --- ESTADOS DE CARREGAMENTO / ERRO ---
+            if (isLoading) {
+                return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-blue-400">Carregando dados...</div>;
+            }
+
+            if (connectionError && disciplines.length === 0) {
+                return (
+                    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-red-400 space-y-4">
+                        <LucideIcon name="WifiOff" size={48} />
+                        <h2 className="text-xl font-bold">Erro de Conexão com o Servidor Python</h2>
+                        <p className="text-slate-400">Verifique se o arquivo `app.py` está rodando.</p>
+                        <button onClick={loadData} className="px-4 py-2 bg-slate-800 rounded hover:bg-slate-700 text-white">Tentar Novamente</button>
+                    </div>
+                );
+            }
+
             // --- RENDERIZAÇÃO ---
             return (
                 <div className="min-h-screen pb-10 bg-slate-950">
@@ -396,11 +341,11 @@
                             <h1 className="text-2xl font-bold text-blue-500 flex items-center gap-2">
                                 <LucideIcon name="BookOpen" className="text-blue-500" />
                                 Sistema Acadêmico
-                                {offlineMode && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded ml-2 border border-amber-500/30">Modo Offline</span>}
+                                {connectionError && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded ml-2 border border-red-500/30 flex items-center gap-1"><LucideIcon name="WifiOff" size={12}/> Offline</span>}
                             </h1>
                             <div className="flex gap-2">
-                                <a href={offlineMode ? "#" : "/exportar_csv"} className={`text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition ${offlineMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                    Baixar Relatório
+                                <a href="/exportar_csv" className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition">
+                                    Baixar Relatório (CSV)
                                 </a>
                             </div>
                         </div>
