@@ -40,7 +40,7 @@
     <div id="root"></div>
 
     <script>
-        // --- DADOS INICIAIS ---
+        {% comment %} // --- DADOS INICIAIS ---
         // Se estiver usando Flask, descomente a linha abaixo e comente o bloco de dados hardcoded:
         // window.INITIAL_DATA = {{ dados | tojson }};
 
@@ -73,7 +73,7 @@
             {"codigo": "CORI0048", "nome": "CÁLCULO II", "semestre": 3, "n1": 9.5, "n2": 4.5, "n3": 0.0, "rec": 0, "media": 4.7, "status": "CURSANDO"},
             {"codigo": "CORI0052", "nome": "SISTEMAS DE INOVAÇÃO E EMPREENDEDORISMO", "semestre": 4, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "PENDENTE"}
         ];
-    </script>
+    </script> {% endcomment %}
 
     {% raw %}
     <script type="text/babel">
