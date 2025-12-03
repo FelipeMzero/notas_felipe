@@ -40,41 +40,7 @@
     <div id="root"></div>
 
     <script>
-        // --- DADOS INICIAIS ---
-        // Se estiver usando Flask, descomente a linha abaixo e comente o bloco de dados hardcoded:
-        // window.INITIAL_DATA = {{ dados | tojson }};
-
-        // Dados injetados manualmente para funcionamento imediato (Preview):
-        window.INITIAL_DATA = [
-            {"codigo": "BSI0007", "nome": "ESTRUTURA DE DADOS I", "semestre": 2, "n1": 8.6, "n2": 9.5, "n3": 9.5, "rec": 0, "media": 9.2, "status": "APROVADO"},
-            {"codigo": "BSI0001", "nome": "INTRODUÇÃO A SISTEMAS DE INFORMAÇÃO", "semestre": 1, "n1": 9.2, "n2": 8.5, "n3": 9.5, "rec": 0, "media": 9.1, "status": "APROVADO"},
-            {"codigo": "BSI0005", "nome": "METODOLOGIA CIENTÍFICA", "semestre": 1, "n1": 6.5, "n2": 7.0, "n3": 2.0, "rec": 5.0, "media": 6.2, "status": "APROVADO"},
-            {"codigo": "BSI0003", "nome": "ORGANIZAÇÃO DE COMPUTADORES", "semestre": 1, "n1": 5.0, "n2": 10.0, "n3": 9.0, "rec": 0, "media": 8.0, "status": "APROVADO"},
-            {"codigo": "CORI0082", "nome": "PROGRAMAÇÃO", "semestre": 1, "n1": 10.0, "n2": 4.0, "n3": 9.0, "rec": 0, "media": 7.7, "status": "APROVADO"},
-            {"codigo": "CORI0043", "nome": "SISTEMAS OPERACIONAIS", "semestre": 3, "n1": 9.5, "n2": 8.0, "n3": 8.0, "rec": 0, "media": 8.5, "status": "APROVADO"},
-            {"codigo": "BSI0008", "nome": "ARQUITETURA DE COMPUTADORES", "semestre": 2, "n1": 7.5, "n2": 9.8, "n3": 8.5, "rec": 0, "media": 8.6, "status": "APROVADO"},
-            {"codigo": "BSI0010", "nome": "CÁLCULO I", "semestre": 2, "n1": 8.4, "n2": 6.8, "n3": 8.0, "rec": 0, "media": 7.7, "status": "APROVADO"},
-            {"codigo": "CORI0042", "nome": "ESTRUTURA DE DADOS II", "semestre": 3, "n1": 2.0, "n2": 2.5, "n3": 9.0, "rec": 6.5, "media": 6.0, "status": "APROVADO"},
-            {"codigo": "CORI0041", "nome": "LABORATÓRIO DE PROGRAMAÇÃO", "semestre": 3, "n1": 10.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 10.0, "status": "APROVADO"},
-            {"codigo": "BSI0002", "nome": "MATEMÁTICA DISCRETA E LÓGICA MATEMÁTICA", "semestre": 1, "n1": 8.0, "n2": 4.0, "n3": 7.0, "rec": 0, "media": 6.3, "status": "APROVADO"},
-            {"codigo": "BSI0009", "nome": "ÁLGEBRA LINEAR", "semestre": 2, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "REPROVADO"},
-            {"codigo": "CORI0050", "nome": "BANCO DE DADOS", "semestre": 4, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
-            {"codigo": "CORI0051", "nome": "ENGENHARIA DE REQUISITOS", "semestre": 4, "n1": 6.1, "n2": 9.5, "n3": 8.5, "rec": 0, "media": 8.0, "status": "APROVADO"},
-            {"codigo": "CORI0040", "nome": "GEOMETRIA ANALÍTICA", "semestre": 3, "n1": 6.7, "n2": 4.0, "n3": 4.0, "rec": 2.5, "media": 4.4, "status": "REPROVADO"},
-            {"codigo": "BSI0006", "nome": "PROGRAMAÇÃO ORIENTADA A OBJETOS", "semestre": 2, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "REPROVADO"},
-            {"codigo": "CORI0049", "nome": "LINGUAGENS FORMAIS E AUTÔMATOS", "semestre": 4, "n1": 8.0, "n2": 8.2, "n3": 0.0, "rec": 0, "media": 5.4, "status": "CURSANDO"},
-            {"codigo": "CORI0053", "nome": "PROBABILIDADE E ESTATÍSTICA", "semestre": 4, "n1": 9.7, "n2": 10.0, "n3": 9.8, "rec": 0, "media": 9.8, "status": "APROVADO"},
-            {"codigo": "CORI0057", "nome": "PROCESSAMENTO DE IMAGEM", "semestre": 5, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
-            {"codigo": "CORI0054", "nome": "PROGRAMAÇÃO PARA WEB", "semestre": 5, "n1": 10.0, "n2": 2.5, "n3": 10.0, "rec": 0, "media": 7.5, "status": "APROVADO"},
-            {"codigo": "CORI0056", "nome": "REDES DE COMPUTADORES", "semestre": 5, "n1": 6.0, "n2": 9.0, "n3": 10.0, "rec": 0, "media": 8.3, "status": "APROVADO"},
-            {"codigo": "CORI0078", "nome": "INTELIGÊNCIA ARTIFICIAL", "semestre": 8, "n1": 10.0, "n2": 4.0, "n3": 10.0, "rec": 0, "media": 8.0, "status": "APROVADO"},
-            {"codigo": "CORI0074", "nome": "INTRODUÇÃO À GOVERNANÇA DE TI", "semestre": 8, "n1": 9.5, "n2": 9.8, "n3": 9.2, "rec": 0, "media": 9.5, "status": "APROVADO"},
-            {"codigo": "CORI0080", "nome": "SEGURANÇA DA INFORMAÇÃO", "semestre": 8, "n1": 8.0, "n2": 10.0, "n3": 10.0, "rec": 0, "media": 9.3, "status": "APROVADO"},
-            {"codigo": "CORI0048", "nome": "CÁLCULO II", "semestre": 3, "n1": 9.5, "n2": 4.5, "n3": 0.0, "rec": 0, "media": 4.7, "status": "CURSANDO"},
-            {"codigo": "CORI0052", "nome": "SISTEMAS DE INOVAÇÃO E EMPREENDEDORISMO", "semestre": 4, "n1": 0.0, "n2": 0.0, "n3": 0.0, "rec": 0, "media": 0.0, "status": "PENDENTE"}
-        ];
-    </script>
-
+?
     {% raw %}
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
