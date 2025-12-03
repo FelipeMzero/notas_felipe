@@ -1,183 +1,514 @@
-from flask import Flask, render_template, jsonify, request, send_file
-import pandas as pd
-import io
-import time
-import json
-import os
-
-app = Flask(__name__)
-
-# Arquivos JSON
-ARQUIVO_DISCIPLINAS = 'disciplinas.json'
-ARQUIVO_NOTAS = 'notas.json'
-
-# --- FUNÇÕES DE PERSISTÊNCIA ---
-
-def carregar_dados():
-    """Carrega estrutura e notas dos arquivos JSON"""
-    # Carrega disciplinas
-    if os.path.exists(ARQUIVO_DISCIPLINAS):
-        with open(ARQUIVO_DISCIPLINAS, 'r', encoding='utf-8') as f:
-            curriculo = json.load(f)
-    else:
-        curriculo = []
-
-    # Carrega notas
-    if os.path.exists(ARQUIVO_NOTAS):
-        with open(ARQUIVO_NOTAS, 'r', encoding='utf-8') as f:
-            historico = json.load(f)
-    else:
-        historico = {}
-
-    dados_compilados = []
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle Acadêmico BSI (Abas)</title>
     
-    for disc in curriculo:
-        codigo = disc["codigo"]
-        # Pega as notas salvas ou inicializa com zeros
-        notas_salvas = historico.get(codigo, [0, 0, 0])
-        # Garante que tenha pelo menos 3 posições
-        while len(notas_salvas) < 3: notas_salvas.append(0)
-        
-        # Tenta pegar recuperação se existir (formato antigo era lista, novo pode precisar de ajuste se mudar estrutura)
-        # Por compatibilidade com o JSON simples de lista [n1, n2, n3], vamos assumir rec=0 se não tiver no JSON
-        # Se você quiser salvar Rec no JSON, o JSON de notas precisaria ser { "COD": {"notas": [], "rec": 0} }
-        # Mas vamos manter o formato simples de lista e adicionar rec como o 4º elemento se necessário, 
-        # ou gerenciar separadamente. Para simplificar, vou salvar a rec como 4º elemento da lista no JSON.
-        
-        rec = 0
-        if len(notas_salvas) > 3:
-            rec = notas_salvas[3]
-        
-        item = disc.copy()
-        item['n1'] = notas_salvas[0]
-        item['n2'] = notas_salvas[1]
-        item['n3'] = notas_salvas[2]
-        item['rec'] = rec
-        
-        # Calcula status
-        item.update(calcular_status(item['n1'], item['n2'], item['n3'], item['rec']))
-        dados_compilados.append(item)
-        
-    return dados_compilados
-
-def salvar_notas(codigo, n1, n2, n3, rec):
-    """Atualiza o arquivo notas.json"""
-    if os.path.exists(ARQUIVO_NOTAS):
-        with open(ARQUIVO_NOTAS, 'r', encoding='utf-8') as f:
-            historico = json.load(f)
-    else:
-        historico = {}
-        
-    # Salva como lista de 4 elementos: [n1, n2, n3, rec]
-    historico[codigo] = [float(n1), float(n2), float(n3), float(rec)]
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    with open(ARQUIVO_NOTAS, 'w', encoding='utf-8') as f:
-        json.dump(historico, f, indent=2)
+    <!-- React Dependencies (Versões fixas) -->
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-def calcular_status(n1, n2, n3, rec=0):
-    try:
-        n1 = float(n1)
-        n2 = float(n2)
-        n3 = float(n3)
-        rec = float(rec)
-    except:
-        n1, n2, n3, rec = 0.0, 0.0, 0.0, 0.0
+    <!-- Ícones Lucide (Vanilla JS) -->
+    <script src="https://unpkg.com/lucide@0.263.1"></script>
+
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .input-grade { 
+            background: #1e293b; border: 1px solid #334155; color: white; 
+            width: 50px; text-align: center; border-radius: 4px; padding: 4px; font-size: 0.9rem;
+        }
+        .input-grade:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+        .input-rec {
+            background: #1e293b; border: 1px solid #ca8a04; color: #facc15; 
+            width: 50px; text-align: center; border-radius: 4px; padding: 4px; font-size: 0.9rem;
+        }
+        .input-rec:focus { outline: 2px solid #eab308; border-color: transparent; }
         
-    notas = [n1, n2, n3]
-    
-    # LÓGICA DE RECUPERAÇÃO
-    if rec > 0:
-        menor_nota = min(notas)
-        if rec > menor_nota:
-            idx_menor = notas.index(menor_nota)
-            notas[idx_menor] = rec
+        /* Animação suave nas abas */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-    media = sum(notas) / 3
-    
-    if n1 == 0 and n2 == 0 and n3 == 0 and rec == 0:
-        status = "PENDENTE"
-    elif media >= 6.0:
-        status = "APROVADO"
-    elif media > 0 and media < 6.0:
-        if n3 == 0 and rec == 0:
-             status = "CURSANDO"
-        else:
-             status = "REPROVADO"
-    else:
-        status = "PENDENTE"
+        /* Esconder scrollbar nas abas mas permitir scroll */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-    return {"media": round(media, 2), "status": status}
+    <script>
+        // Removido window.INITIAL_DATA hardcoded para forçar o carregamento via API
+    </script>
 
-# --- ROTAS FLASK ---
+    {% raw %}
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+        const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
 
-@app.route('/')
-def index():
-    # Recarrega dados do arquivo a cada request para garantir sincronia
-    dados = carregar_dados()
-    return render_template('index.html', dados=dados)
+        // Configurações de Cores
+        const COLORS = {
+            APROVADO: '#10b981', // green-500
+            REPROVADO: '#ef4444', // red-500
+            CURSANDO: '#f59e0b', // amber-500
+            PENDENTE: '#475569'  // slate-600
+        };
 
-@app.route('/api/atualizar', methods=['POST'])
-def atualizar_nota():
-    req = request.json
-    codigo = req.get('code')
-    campo = req.get('field') # n1, n2, n3 ou rec
-    valor = req.get('value')
-    
-    # Carrega estado atual
-    dados_atuais = carregar_dados()
-    disciplina_alvo = next((d for d in dados_atuais if d['codigo'] == codigo), None)
-    
-    if disciplina_alvo:
-        try:
-            if valor == "": valor = 0
-            f_val = float(valor)
-        except ValueError:
-            return jsonify({"error": "Valor inválido"}), 400
-        
-        # Atualiza o campo temporariamente
-        disciplina_alvo[campo] = f_val
-        
-        # Salva no JSON (Persistência)
-        salvar_notas(
-            codigo, 
-            disciplina_alvo['n1'], 
-            disciplina_alvo['n2'], 
-            disciplina_alvo['n3'], 
-            disciplina_alvo['rec']
-        )
-        
-        # Recalcula status para retorno
-        novos_stats = calcular_status(
-            disciplina_alvo['n1'], 
-            disciplina_alvo['n2'], 
-            disciplina_alvo['n3'], 
-            disciplina_alvo['rec']
-        )
-        disciplina_alvo.update(novos_stats)
-        
-        return jsonify({"success": True, "data": disciplina_alvo})
-            
-    return jsonify({"error": "Disciplina não encontrada"}), 404
+        // --- COMPONENTE DE ÍCONE ---
+        const LucideIcon = ({ name, size = 18, className = "" }) => {
+            const ref = useRef(null);
 
-@app.route('/exportar_csv')
-def exportar_csv():
-    dados = carregar_dados()
-    df = pd.DataFrame(dados)
-    
-    df_export = df[['semestre', 'codigo', 'nome', 'n1', 'n2', 'n3', 'rec', 'media', 'status']].copy()
-    df_export.columns = ['Semestre', 'Código', 'Disciplina', 'Nota 1', 'Nota 2', 'Nota 3', 'Recuperação', 'Média', 'Status']
-    
-    buffer = io.BytesIO()
-    df_export.to_csv(buffer, index=False, sep=';', encoding='utf-8-sig')
-    buffer.seek(0)
-    
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=f'Boletim_BSI_{int(time.time())}.csv',
-        mimetype='text/csv'
-    )
+            useEffect(() => {
+                if (window.lucide && window.lucide.icons && window.lucide.icons[name]) {
+                    const svg = window.lucide.icons[name].toSvg({
+                        class: className,
+                        width: size,
+                        height: size,
+                        "stroke-width": 2
+                    });
+                    if (ref.current) {
+                        ref.current.innerHTML = svg;
+                    }
+                }
+            }, [name, size, className]);
 
-if __name__ == '__main__':
-    # use_reloader=True ajuda no desenvolvimento, mas em produção usaria gunicorn/etc
-    app.run(debug=True, port=5000)
+            return <span ref={ref} className="inline-flex items-center justify-center" />;
+        };
+
+        // --- COMPONENTES AUXILIARES ---
+
+        const StatusBadge = ({ status }) => {
+            const styles = {
+                "APROVADO": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                "REPROVADO": "bg-red-500/10 text-red-400 border-red-500/20",
+                "CURSANDO": "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                "PENDENTE": "bg-slate-700/50 text-slate-400 border-slate-600/50",
+            };
+            return (
+                <span className={`px-2 py-1 rounded text-xs font-bold border ${styles[status] || styles["PENDENTE"]}`}>
+                    {status}
+                </span>
+            );
+        };
+
+        const TabButton = ({ active, onClick, iconName, label, count }) => (
+            <button 
+                onClick={onClick}
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b-2 transition-colors duration-200 whitespace-nowrap ${
+                    active 
+                    ? 'border-blue-500 text-blue-400 bg-slate-800/50' 
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+                }`}
+            >
+                <LucideIcon name={iconName} size={18} />
+                <span className="font-medium">{label}</span>
+                {count !== undefined && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${active ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-700 text-slate-400'}`}>
+                        {count}
+                    </span>
+                )}
+            </button>
+        );
+
+        // Tabela de Disciplinas Reutilizável
+        const DisciplineTable = ({ disciplines, onGradeChange }) => {
+            if (disciplines.length === 0) {
+                return <div className="p-8 text-center text-slate-500">Nenhuma disciplina encontrada ou carregando...</div>;
+            }
+
+            return (
+                <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-800/50">
+                    <table className="w-full text-left text-sm text-slate-300">
+                        <thead className="bg-slate-900/80 text-slate-400 uppercase font-semibold">
+                            <tr>
+                                <th className="p-3 w-16 whitespace-nowrap">Sem.</th>
+                                <th className="p-3 whitespace-nowrap">Código</th>
+                                <th className="p-3 min-w-[200px] whitespace-nowrap">Disciplina</th>
+                                <th className="p-3 text-center whitespace-nowrap">N1</th>
+                                <th className="p-3 text-center whitespace-nowrap">N2</th>
+                                <th className="p-3 text-center whitespace-nowrap">N3</th>
+                                <th className="p-3 text-center text-yellow-500 whitespace-nowrap">Rec.</th>
+                                <th className="p-3 text-center whitespace-nowrap">Média</th>
+                                <th className="p-3 text-center whitespace-nowrap">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-700">
+                            {disciplines.map(disc => (
+                                <tr key={disc.codigo} className="hover:bg-slate-700/30 transition group">
+                                    <td className="p-3 text-slate-500 text-center whitespace-nowrap">{disc.semestre}º</td>
+                                    <td className="p-3 font-mono text-xs text-slate-500 whitespace-nowrap">{disc.codigo}</td>
+                                    <td className="p-3 font-medium text-slate-200 whitespace-nowrap">{disc.nome}</td>
+                                    <td className="p-3 text-center">
+                                        <input className="input-grade" value={disc.n1 === 0 ? "" : disc.n1} 
+                                            onChange={(e) => onGradeChange(disc.codigo, 'n1', e.target.value)} />
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <input className="input-grade" value={disc.n2 === 0 ? "" : disc.n2} 
+                                            onChange={(e) => onGradeChange(disc.codigo, 'n2', e.target.value)} />
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <input className="input-grade" value={disc.n3 === 0 ? "" : disc.n3} 
+                                            onChange={(e) => onGradeChange(disc.codigo, 'n3', e.target.value)} />
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <input className="input-rec" value={disc.rec === 0 ? "" : disc.rec} 
+                                            onChange={(e) => onGradeChange(disc.codigo, 'rec', e.target.value)} />
+                                    </td>
+                                    <td className="p-3 text-center font-bold text-white whitespace-nowrap">{disc.media}</td>
+                                    <td className="p-3 text-center whitespace-nowrap"><StatusBadge status={disc.status} /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [disciplines, setDisciplines] = useState([]);
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [searchTerm, setSearchTerm] = useState('');
+            const [lastInteraction, setLastInteraction] = useState(Date.now());
+
+            // --- CARREGAR DADOS DO SERVIDOR ---
+            const loadData = async () => {
+                try {
+                    const response = await fetch('/api/dados');
+                    if (response.ok) {
+                        const data = await response.json();
+                        setDisciplines(data);
+                    } else {
+                        console.error('Falha ao carregar dados');
+                    }
+                } catch (error) {
+                    console.error('Erro de conexão:', error);
+                }
+            };
+
+            // Carrega ao iniciar
+            useEffect(() => {
+                loadData();
+                lucide.createIcons();
+            }, []);
+
+            // --- AUTO REFRESH (5 MIN) ---
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    const now = Date.now();
+                    if (now - lastInteraction > 300000) {
+                        window.location.reload();
+                    } else {
+                        // Sincroniza silenciosamente se ativo
+                        loadData();
+                    }
+                }, 30000); // Verifica a cada 30s
+
+                const updateInteraction = () => setLastInteraction(Date.now());
+                window.addEventListener('mousemove', updateInteraction);
+                window.addEventListener('keypress', updateInteraction);
+                return () => {
+                    clearInterval(interval);
+                    window.removeEventListener('mousemove', updateInteraction);
+                    window.removeEventListener('keypress', updateInteraction);
+                }
+            }, [lastInteraction]);
+
+            // --- LÓGICA DE NEGÓCIO ---
+
+            const stats = useMemo(() => {
+                return disciplines.reduce((acc, curr) => {
+                    acc[curr.status] = (acc[curr.status] || 0) + 1;
+                    return acc;
+                }, {});
+            }, [disciplines]);
+
+            const pieData = [
+                { name: 'Aprovado', value: stats['APROVADO'] || 0 },
+                { name: 'Reprovado', value: stats['REPROVADO'] || 0 },
+                { name: 'Cursando', value: stats['CURSANDO'] || 0 },
+                { name: 'Pendente', value: stats['PENDENTE'] || 0 },
+            ];
+
+            const calculateLocalStats = (disc) => {
+                let n1 = parseFloat(disc.n1) || 0;
+                let n2 = parseFloat(disc.n2) || 0;
+                let n3 = parseFloat(disc.n3) || 0;
+                let rec = parseFloat(disc.rec) || 0;
+                let notas = [n1, n2, n3];
+                
+                if (rec > 0) {
+                    const minNota = Math.min(...notas);
+                    if (rec > minNota) {
+                        notas[notas.indexOf(minNota)] = rec;
+                    }
+                }
+                
+                const media = (notas.reduce((a, b) => a + b, 0) / 3).toFixed(2);
+                let status = "PENDENTE";
+                if (n1 === 0 && n2 === 0 && n3 === 0 && rec === 0) status = "PENDENTE";
+                else if (parseFloat(media) >= 6.0) status = "APROVADO";
+                else if (n3 === 0 && rec === 0) status = "CURSANDO";
+                else status = "REPROVADO";
+                
+                return { media, status };
+            };
+
+            const handleGradeChange = async (codigo, field, value) => {
+                const cleanValue = value.replace(',', '.');
+                if (cleanValue !== "" && isNaN(cleanValue)) return;
+
+                // Atualização Otimista (Visual Imediato)
+                setDisciplines(prev => prev.map(d => {
+                    if (d.codigo === codigo) {
+                        const updated = { ...d, [field]: cleanValue };
+                        const stats = calculateLocalStats(updated);
+                        return { ...updated, ...stats };
+                    }
+                    return d;
+                }));
+
+                // Persistência no Servidor
+                try {
+                    const res = await fetch('/api/atualizar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: codigo, field, value: cleanValue })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        // Confirmação do servidor (preserva valor digitado, atualiza calculados)
+                        setDisciplines(prev => prev.map(d => 
+                            d.codigo === codigo ? { ...d, media: result.data.media, status: result.data.status } : d
+                        ));
+                    }
+                } catch (error) { 
+                    console.error("Erro ao salvar nota:", error); 
+                }
+            };
+
+            // Filtragem de Dados por Aba
+            const getFilteredDisciplines = () => {
+                let filtered = [];
+                const searchLower = searchTerm.toLowerCase();
+
+                switch(activeTab) {
+                    case 'aprovadas':
+                        filtered = disciplines.filter(d => d.status === 'APROVADO');
+                        break;
+                    case 'reprovadas':
+                        filtered = disciplines.filter(d => d.status === 'REPROVADO');
+                        break;
+                    case 'cursando':
+                        filtered = disciplines.filter(d => d.status === 'CURSANDO');
+                        break;
+                    case 'geral':
+                        filtered = [...disciplines];
+                        break;
+                    default:
+                        return [];
+                }
+
+                if (searchTerm) {
+                    filtered = filtered.filter(d => 
+                        d.nome.toLowerCase().includes(searchLower) || 
+                        d.codigo.toLowerCase().includes(searchLower)
+                    );
+                }
+
+                return filtered;
+            };
+
+            const filteredList = getFilteredDisciplines();
+
+            // --- RENDERIZAÇÃO ---
+            return (
+                <div className="min-h-screen pb-10 bg-slate-950">
+                    
+                    {/* Header */}
+                    <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+                        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <h1 className="text-2xl font-bold text-blue-500 flex items-center gap-2">
+                                <LucideIcon name="BookOpen" className="text-blue-500" />
+                                Sistema Acadêmico
+                            </h1>
+                            <div className="flex gap-2">
+                                <a href="/exportar_csv" className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition">
+                                    Baixar Relatório
+                                </a>
+                            </div>
+                        </div>
+
+                        {/* Navegação de Abas */}
+                        <div className="max-w-7xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto no-scrollbar">
+                            <TabButton 
+                                active={activeTab === 'dashboard'} 
+                                onClick={() => setActiveTab('dashboard')} 
+                                iconName="Home" 
+                                label="Dashboard" 
+                            />
+                            <TabButton 
+                                active={activeTab === 'aprovadas'} 
+                                onClick={() => { setActiveTab('aprovadas'); setSearchTerm(''); }} 
+                                iconName="CheckCircle" 
+                                label="Aprovadas" 
+                                count={stats['APROVADO']}
+                            />
+                            <TabButton 
+                                active={activeTab === 'cursando'} 
+                                onClick={() => { setActiveTab('cursando'); setSearchTerm(''); }} 
+                                iconName="Clock" 
+                                label="Cursando" 
+                                count={stats['CURSANDO']}
+                            />
+                            <TabButton 
+                                active={activeTab === 'reprovadas'} 
+                                onClick={() => { setActiveTab('reprovadas'); setSearchTerm(''); }} 
+                                iconName="XCircle" 
+                                label="Reprovadas" 
+                                count={stats['REPROVADO']}
+                            />
+                            <TabButton 
+                                active={activeTab === 'geral'} 
+                                onClick={() => { setActiveTab('geral'); setSearchTerm(''); }} 
+                                iconName="BookOpen" 
+                                label="Geral" 
+                            />
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto p-4 md:p-6 fade-in">
+                        
+                        {/* CONTEÚDO: DASHBOARD */}
+                        {activeTab === 'dashboard' && (
+                            <div className="space-y-8">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Disciplinas Aprovadas</p>
+                                                <h3 className="text-4xl font-bold text-emerald-400 mt-2">{stats['APROVADO'] || 0}</h3>
+                                            </div>
+                                            <div className="p-3 bg-emerald-500/10 rounded-lg">
+                                                <LucideIcon name="CheckCircle" className="text-emerald-500" size={24} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Cursando Agora</p>
+                                                <h3 className="text-4xl font-bold text-amber-400 mt-2">{stats['CURSANDO'] || 0}</h3>
+                                            </div>
+                                            <div className="p-3 bg-amber-500/10 rounded-lg">
+                                                <LucideIcon name="Clock" className="text-amber-500" size={24} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">Aguardando / Pendente</p>
+                                                <h3 className="text-4xl font-bold text-slate-300 mt-2">{stats['PENDENTE'] || 0}</h3>
+                                            </div>
+                                            <div className="p-3 bg-slate-700/30 rounded-lg">
+                                                <LucideIcon name="BookOpen" className="text-slate-400" size={24} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    <div className="md:col-span-1 bg-slate-800 p-6 rounded-xl border border-slate-700 h-80">
+                                        <h3 className="text-lg font-semibold text-slate-200 mb-4">Visão Geral</h3>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                                    {pieData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[entry.name.toUpperCase()]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip contentStyle={{backgroundColor: '#1e293b', border: 'none', borderRadius: '8px'}} />
+                                                <Legend verticalAlign="bottom" height={36} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="md:col-span-2 bg-slate-800 p-6 rounded-xl border border-slate-700">
+                                        <h3 className="text-lg font-semibold text-slate-200 mb-4 flex items-center gap-2">
+                                            <LucideIcon name="AlertTriangle" className="text-red-400" size={20} />
+                                            Atenção - Reprovações
+                                        </h3>
+                                        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                                            {disciplines.filter(d => d.status === 'REPROVADO').length === 0 ? (
+                                                <p className="text-slate-500 italic">Nenhuma reprovação registrada.</p>
+                                            ) : (
+                                                disciplines.filter(d => d.status === 'REPROVADO').map(disc => (
+                                                    <div key={disc.codigo} className="bg-slate-900/50 p-4 rounded border-l-4 border-red-500 flex justify-between items-center">
+                                                        <div>
+                                                            <span className="font-bold text-slate-200 block">{disc.nome}</span>
+                                                            <span className="text-xs text-slate-500 font-mono">{disc.codigo}</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-red-400 font-bold block">{disc.media}</span>
+                                                            <span className="text-xs text-slate-500">Média Final</span>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* CONTEÚDO: LISTAS (Aprovadas, Cursando, Reprovadas, Geral) */}
+                        {activeTab !== 'dashboard' && (
+                            <div className="space-y-6 fade-in">
+                                <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800 p-4 rounded-lg border border-slate-700">
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white capitalize">{activeTab}</h2>
+                                        <p className="text-slate-400 text-sm">
+                                            {filteredList.length} disciplina(s) encontrada(s)
+                                        </p>
+                                    </div>
+                                    
+                                    {/* Barra de Busca */}
+                                    <div className="relative w-full md:w-96">
+                                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none">
+                                            <LucideIcon name="Search" size={18} />
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Pesquisar por nome ou código..." 
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
+                                        />
+                                    </div>
+                                </div>
+
+                                <DisciplineTable 
+                                    disciplines={filteredList} 
+                                    onGradeChange={handleGradeChange} 
+                                />
+                            </div>
+                        )}
+
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+    {% endraw %}
+</body>
+</html>
