@@ -41,6 +41,7 @@
 <body>
     <div id="root"></div>
 
+    {% raw %}
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
@@ -449,5 +450,6 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+    {% endraw %}
 </body>
 </html>
