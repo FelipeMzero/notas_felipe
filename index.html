@@ -15,8 +15,8 @@
     <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Ícones Lucide -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Ícones Lucide (Versão fixa para estabilidade) -->
+    <script src="https://unpkg.com/lucide@0.263.1"></script>
 
     <style>
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
@@ -57,6 +57,7 @@
         const LucideIcon = ({ name, size = 18, className = "" }) => {
             const ref = useRef(null);
             useEffect(() => {
+                // Verifica se a biblioteca carregou e se o ícone existe
                 if (window.lucide && window.lucide.icons && window.lucide.icons[name]) {
                     const svg = window.lucide.icons[name].toSvg({
                         class: className, width: size, height: size, "stroke-width": 2
@@ -166,7 +167,14 @@
             // --- CARREGAR DADOS DO SERVIDOR (Apenas JSON) ---
             const loadData = async () => {
                 try {
-                    const response = await fetch('/api/dados');
+                    // Try-catch para lidar com URLs relativas em ambiente blob/file
+                    let response;
+                    try {
+                        response = await fetch('/api/dados');
+                    } catch (netErr) {
+                        throw new Error("Falha na conexão de rede ou URL inválida");
+                    }
+
                     if (!response.ok) throw new Error('Erro na resposta da API');
                     
                     const data = await response.json();
@@ -197,7 +205,7 @@
                         window.location.reload();
                     } else {
                         // Se ativo, apenas busca dados silenciosamente para manter sync
-                        loadData();
+                        if (!connectionError) loadData();
                     }
                 }, 30000); // Polling a cada 30s
 
@@ -209,7 +217,7 @@
                     window.removeEventListener('mousemove', updateInteraction);
                     window.removeEventListener('keypress', updateInteraction);
                 }
-            }, [lastInteraction]);
+            }, [lastInteraction, connectionError]);
 
             // --- LÓGICA DE CÁLCULO LOCAL (Feedback Visual) ---
             const calculateLocalStats = (disc) => {
