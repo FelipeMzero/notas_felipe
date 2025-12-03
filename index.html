@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Ícones Lucide -->
+    <!-- Ícones Lucide (Versão fixa para estabilidade) -->
     <script src="https://unpkg.com/lucide@0.263.1"></script>
 
     <style>
@@ -47,10 +47,8 @@
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
 
         // Base URL para evitar problemas de blob/file preview
-        // Tenta detectar se está rodando localmente
         const getApiUrl = (endpoint) => {
             const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
-            // Se não estiver no localhost (ex: preview de IDE), tenta forçar o localhost:5000
             const baseUrl = isLocal ? '' : 'http://127.0.0.1:5000';
             return `${baseUrl}${endpoint}`;
         };
@@ -110,8 +108,11 @@
             </button>
         );
 
+        // Tabela de Disciplinas Reutilizável
         const DisciplineTable = ({ disciplines, onGradeChange }) => {
-            if (disciplines.length === 0) return <div className="p-8 text-center text-slate-500">Nenhum dado carregado. Verifique se o servidor Python está rodando.</div>;
+            if (disciplines.length === 0) {
+                return <div className="p-8 text-center text-slate-500">Nenhum dado carregado. Verifique se o servidor Python está rodando.</div>;
+            }
 
             return (
                 <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-800/50">
@@ -136,19 +137,19 @@
                                     <td className="p-3 font-mono text-xs text-slate-500 whitespace-nowrap">{disc.codigo}</td>
                                     <td className="p-3 font-medium text-slate-200 whitespace-nowrap">{disc.nome}</td>
                                     <td className="p-3 text-center">
-                                        <input className="input-grade" value={disc.n1 === 0 ? "" : disc.n1} 
+                                        <input className="input-grade" type="text" inputMode="decimal" value={disc.n1 === 0 ? "" : disc.n1} 
                                             onChange={(e) => onGradeChange(disc.codigo, 'n1', e.target.value)} />
                                     </td>
                                     <td className="p-3 text-center">
-                                        <input className="input-grade" value={disc.n2 === 0 ? "" : disc.n2} 
+                                        <input className="input-grade" type="text" inputMode="decimal" value={disc.n2 === 0 ? "" : disc.n2} 
                                             onChange={(e) => onGradeChange(disc.codigo, 'n2', e.target.value)} />
                                     </td>
                                     <td className="p-3 text-center">
-                                        <input className="input-grade" value={disc.n3 === 0 ? "" : disc.n3} 
+                                        <input className="input-grade" type="text" inputMode="decimal" value={disc.n3 === 0 ? "" : disc.n3} 
                                             onChange={(e) => onGradeChange(disc.codigo, 'n3', e.target.value)} />
                                     </td>
                                     <td className="p-3 text-center">
-                                        <input className="input-rec" value={disc.rec === 0 ? "" : disc.rec} 
+                                        <input className="input-rec" type="text" inputMode="decimal" value={disc.rec === 0 ? "" : disc.rec} 
                                             onChange={(e) => onGradeChange(disc.codigo, 'rec', e.target.value)} />
                                     </td>
                                     <td className="p-3 text-center font-bold text-white whitespace-nowrap">{disc.media}</td>
@@ -169,20 +170,19 @@
             const [connectionError, setConnectionError] = useState(false);
             const [isLoading, setIsLoading] = useState(true);
 
-            // --- CARREGAR DADOS ---
+            // --- CARREGAR DADOS DO SERVIDOR ---
             const loadData = async () => {
                 setIsLoading(true);
                 try {
-                    // Tenta rota relativa primeiro
+                    // Tenta rota relativa primeiro, depois absoluta
                     let response;
                     try {
                         response = await fetch('/api/dados');
                     } catch (e) {
-                        // Se falhar (ex: blob url), tenta rota absoluta local
                         response = await fetch('http://127.0.0.1:5000/api/dados');
                     }
 
-                    if (!response.ok) throw new Error('Erro API');
+                    if (!response.ok) throw new Error('Erro na resposta da API');
                     
                     const data = await response.json();
                     setDisciplines(data);
@@ -200,7 +200,7 @@
                 if (window.lucide) window.lucide.createIcons();
             }, []);
 
-            // --- AUTO REFRESH ---
+            // --- AUTO REFRESH (5 MIN) ---
             useEffect(() => {
                 const interval = setInterval(() => {
                     const now = Date.now();
@@ -221,7 +221,7 @@
                 }
             }, [lastInteraction, connectionError]);
 
-            // --- CÁLCULO LOCAL ---
+            // --- CÁLCULO LOCAL PARA FEEDBACK ---
             const calculateLocalStats = (disc) => {
                 let n1 = parseFloat(disc.n1) || 0;
                 let n2 = parseFloat(disc.n2) || 0;
@@ -249,28 +249,34 @@
             };
 
             const handleGradeChange = async (codigo, field, value) => {
+                // 1. Substitui vírgula por ponto para o padrão numérico
                 const cleanValue = value.replace(',', '.');
-                if (cleanValue !== "" && isNaN(cleanValue)) return;
 
+                // 2. Validação Flexível (Regex):
+                // Permite números inteiros, decimais, ou vazio.
+                // Aceita "8.", ".5", "8.5" enquanto digita.
+                if (cleanValue !== "" && !/^[0-9]*\.?[0-9]*$/.test(cleanValue)) {
+                    return; // Ignora se não for número válido
+                }
+
+                // 3. Atualização Otimista
                 setDisciplines(prev => prev.map(d => {
                     if (d.codigo === codigo) {
                         const updated = { ...d, [field]: cleanValue };
-                        const stats = calculateLocalStats(updated);
-                        return { ...updated, ...stats };
+                        // Se for um número completo, calcula stats
+                        if (!isNaN(parseFloat(cleanValue))) {
+                            const stats = calculateLocalStats(updated);
+                            return { ...updated, ...stats };
+                        }
+                        return updated;
                     }
                     return d;
                 }));
 
+                // 4. Envia para o Servidor
                 try {
-                    // Tenta rota relativa, fallback para absoluta
                     let url = '/api/atualizar';
-                    try {
-                        // Teste rápido de URL
-                        new URL(url, window.location.href); 
-                        if (window.location.protocol === 'file:' || window.location.protocol === 'blob:') throw new Error();
-                    } catch {
-                        url = 'http://127.0.0.1:5000/api/atualizar';
-                    }
+                    try { new URL(url, window.location.href); if (window.location.protocol === 'file:' || window.location.protocol === 'blob:') throw new Error(); } catch { url = 'http://127.0.0.1:5000/api/atualizar'; }
 
                     const res = await fetch(url, {
                         method: 'POST',
@@ -282,8 +288,10 @@
 
                     const result = await res.json();
                     if (result.success) {
+                        // Atualiza confirmação do servidor APENAS se o campo não estiver em foco (opcional)
+                        // ou atualiza tudo para garantir consistência
                         setDisciplines(prev => prev.map(d => 
-                            d.codigo === codigo ? result.data : d
+                            d.codigo === codigo ? { ...d, media: result.data.media, status: result.data.status } : d
                         ));
                         setConnectionError(false);
                     }
@@ -292,7 +300,7 @@
                 }
             };
 
-            // Filtragem
+            // Filtragem e Stats
             const getFilteredDisciplines = () => {
                 let filtered = [];
                 const searchLower = searchTerm.toLowerCase();
@@ -325,7 +333,7 @@
 
             const filteredList = getFilteredDisciplines();
 
-            // --- ESTADOS DE CARREGAMENTO / ERRO ---
+            // --- RENDERIZAÇÃO ---
             if (isLoading) {
                 return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-blue-400">Carregando dados...</div>;
             }
@@ -335,17 +343,12 @@
                     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-red-400 space-y-4">
                         <LucideIcon name="WifiOff" size={48} />
                         <h2 className="text-xl font-bold">Servidor Desconectado</h2>
-                        <p className="text-slate-400 text-center px-4">
-                            Não foi possível conectar ao servidor Python.<br/>
-                            1. Certifique-se de rodar <code>python app.py</code><br/>
-                            2. Acesse via <code>http://127.0.0.1:5000</code> (não use Preview/Arquivo direto)
-                        </p>
+                        <p className="text-slate-400 text-center px-4">Verifique se o <code>app.py</code> está rodando.</p>
                         <button onClick={loadData} className="px-4 py-2 bg-slate-800 rounded hover:bg-slate-700 text-white border border-slate-600 transition">Tentar Novamente</button>
                     </div>
                 );
             }
 
-            // --- RENDERIZAÇÃO ---
             return (
                 <div className="min-h-screen pb-10 bg-slate-950">
                     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
@@ -356,9 +359,7 @@
                                 {connectionError && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded ml-2 border border-red-500/30 flex items-center gap-1"><LucideIcon name="WifiOff" size={12}/> Offline</span>}
                             </h1>
                             <div className="flex gap-2">
-                                <a href={getApiUrl('/exportar_csv')} className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition border border-slate-700">
-                                    Baixar CSV
-                                </a>
+                                <a href={getApiUrl('/exportar_csv')} className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition border border-slate-700">Baixar CSV</a>
                             </div>
                         </div>
                         <div className="max-w-7xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto no-scrollbar">
@@ -393,9 +394,7 @@
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
                                                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                                    {pieData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                                                    ))}
+                                                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                                                 </Pie>
                                                 <Tooltip contentStyle={{backgroundColor: '#1e293b', border: 'none', borderRadius: '8px'}} />
                                                 <Legend verticalAlign="bottom" height={36} />
