@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Ícones Lucide (Versão fixa) -->
+    <!-- Ícones Lucide -->
     <script src="https://unpkg.com/lucide@0.263.1"></script>
 
     <style>
@@ -46,12 +46,20 @@
         const { useState, useEffect, useMemo, useRef } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
 
-        // Configurações de Cores
+        // Base URL para evitar problemas de blob/file preview
+        // Tenta detectar se está rodando localmente
+        const getApiUrl = (endpoint) => {
+            const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+            // Se não estiver no localhost (ex: preview de IDE), tenta forçar o localhost:5000
+            const baseUrl = isLocal ? '' : 'http://127.0.0.1:5000';
+            return `${baseUrl}${endpoint}`;
+        };
+
         const COLORS = {
-            APROVADO: '#10b981', // green-500
-            REPROVADO: '#ef4444', // red-500
-            CURSANDO: '#f59e0b', // amber-500
-            PENDENTE: '#475569'  // slate-600
+            APROVADO: '#10b981', 
+            REPROVADO: '#ef4444', 
+            CURSANDO: '#f59e0b', 
+            PENDENTE: '#475569' 
         };
 
         // --- COMPONENTE DE ÍCONE ---
@@ -65,8 +73,6 @@
                     if (ref.current) ref.current.innerHTML = svg;
                 }
             }, [name, size, className]);
-            
-            // Renderiza placeholder vazio se a lib não carregar
             return <span ref={ref} className="inline-flex items-center justify-center min-w-[18px] min-h-[18px]" />;
         };
 
@@ -104,11 +110,8 @@
             </button>
         );
 
-        // Tabela de Disciplinas Reutilizável
         const DisciplineTable = ({ disciplines, onGradeChange }) => {
-            if (disciplines.length === 0) {
-                return <div className="p-8 text-center text-slate-500">Nenhum dado carregado. Verifique se o servidor Python está rodando.</div>;
-            }
+            if (disciplines.length === 0) return <div className="p-8 text-center text-slate-500">Nenhum dado carregado. Verifique se o servidor Python está rodando.</div>;
 
             return (
                 <div className="overflow-x-auto rounded-lg border border-slate-700 bg-slate-800/50">
@@ -166,47 +169,44 @@
             const [connectionError, setConnectionError] = useState(false);
             const [isLoading, setIsLoading] = useState(true);
 
-            // --- CARREGAR DADOS DO SERVIDOR (Apenas JSON) ---
+            // --- CARREGAR DADOS ---
             const loadData = async () => {
                 setIsLoading(true);
                 try {
-                    // Try-catch para lidar com URLs relativas em ambiente blob/file
+                    // Tenta rota relativa primeiro
                     let response;
                     try {
                         response = await fetch('/api/dados');
-                    } catch (netErr) {
-                        throw new Error("Falha na conexão de rede ou URL inválida");
+                    } catch (e) {
+                        // Se falhar (ex: blob url), tenta rota absoluta local
+                        response = await fetch('http://127.0.0.1:5000/api/dados');
                     }
 
-                    if (!response.ok) throw new Error('Erro na resposta da API');
+                    if (!response.ok) throw new Error('Erro API');
                     
                     const data = await response.json();
                     setDisciplines(data);
                     setConnectionError(false);
-                    setIsLoading(false);
                 } catch (error) {
-                    // Sem console.error para evitar spam visual no console
+                    console.warn("Falha ao conectar:", error);
                     setConnectionError(true);
                 } finally {
                     setIsLoading(false);
                 }
             };
 
-            // Carrega ao iniciar
             useEffect(() => {
                 loadData();
                 if (window.lucide) window.lucide.createIcons();
             }, []);
 
-            // --- AUTO REFRESH (5 MIN) ---
+            // --- AUTO REFRESH ---
             useEffect(() => {
                 const interval = setInterval(() => {
                     const now = Date.now();
-                    // Se inativo por 5 min, recarrega a página completa
                     if (now - lastInteraction > 300000) {
                         window.location.reload();
                     } else if (!connectionError) {
-                        // Tenta reconectar silenciosamente se estiver sem erro
                         loadData(); 
                     }
                 }, 30000); 
@@ -221,7 +221,7 @@
                 }
             }, [lastInteraction, connectionError]);
 
-            // --- LÓGICA DE CÁLCULO LOCAL (Feedback Visual) ---
+            // --- CÁLCULO LOCAL ---
             const calculateLocalStats = (disc) => {
                 let n1 = parseFloat(disc.n1) || 0;
                 let n2 = parseFloat(disc.n2) || 0;
@@ -252,7 +252,6 @@
                 const cleanValue = value.replace(',', '.');
                 if (cleanValue !== "" && isNaN(cleanValue)) return;
 
-                // 1. Atualização Otimista
                 setDisciplines(prev => prev.map(d => {
                     if (d.codigo === codigo) {
                         const updated = { ...d, [field]: cleanValue };
@@ -262,9 +261,18 @@
                     return d;
                 }));
 
-                // 2. Envia para o Servidor
                 try {
-                    const res = await fetch('/api/atualizar', {
+                    // Tenta rota relativa, fallback para absoluta
+                    let url = '/api/atualizar';
+                    try {
+                        // Teste rápido de URL
+                        new URL(url, window.location.href); 
+                        if (window.location.protocol === 'file:' || window.location.protocol === 'blob:') throw new Error();
+                    } catch {
+                        url = 'http://127.0.0.1:5000/api/atualizar';
+                    }
+
+                    const res = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ code: codigo, field, value: cleanValue })
@@ -274,7 +282,6 @@
 
                     const result = await res.json();
                     if (result.success) {
-                        // 3. Atualiza com a confirmação real do servidor (JSON)
                         setDisciplines(prev => prev.map(d => 
                             d.codigo === codigo ? result.data : d
                         ));
@@ -289,7 +296,6 @@
             const getFilteredDisciplines = () => {
                 let filtered = [];
                 const searchLower = searchTerm.toLowerCase();
-
                 switch(activeTab) {
                     case 'aprovadas': filtered = disciplines.filter(d => d.status === 'APROVADO'); break;
                     case 'reprovadas': filtered = disciplines.filter(d => d.status === 'REPROVADO'); break;
@@ -297,17 +303,12 @@
                     case 'geral': filtered = [...disciplines]; break;
                     default: return [];
                 }
-
                 if (searchTerm) {
-                    filtered = filtered.filter(d => 
-                        d.nome.toLowerCase().includes(searchLower) || 
-                        d.codigo.toLowerCase().includes(searchLower)
-                    );
+                    filtered = filtered.filter(d => d.nome.toLowerCase().includes(searchLower) || d.codigo.toLowerCase().includes(searchLower));
                 }
                 return filtered;
             };
 
-            // Stats
             const stats = useMemo(() => {
                 return disciplines.reduce((acc, curr) => {
                     acc[curr.status] = (acc[curr.status] || 0) + 1;
@@ -334,7 +335,11 @@
                     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-red-400 space-y-4">
                         <LucideIcon name="WifiOff" size={48} />
                         <h2 className="text-xl font-bold">Servidor Desconectado</h2>
-                        <p className="text-slate-400 text-center px-4">Não foi possível conectar ao servidor Python (app.py).<br/>Verifique se ele está rodando na porta 5000.</p>
+                        <p className="text-slate-400 text-center px-4">
+                            Não foi possível conectar ao servidor Python.<br/>
+                            1. Certifique-se de rodar <code>python app.py</code><br/>
+                            2. Acesse via <code>http://127.0.0.1:5000</code> (não use Preview/Arquivo direto)
+                        </p>
                         <button onClick={loadData} className="px-4 py-2 bg-slate-800 rounded hover:bg-slate-700 text-white border border-slate-600 transition">Tentar Novamente</button>
                     </div>
                 );
@@ -351,7 +356,7 @@
                                 {connectionError && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded ml-2 border border-red-500/30 flex items-center gap-1"><LucideIcon name="WifiOff" size={12}/> Offline</span>}
                             </h1>
                             <div className="flex gap-2">
-                                <a href="/exportar_csv" className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition border border-slate-700">
+                                <a href={getApiUrl('/exportar_csv')} className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition border border-slate-700">
                                     Baixar CSV
                                 </a>
                             </div>
