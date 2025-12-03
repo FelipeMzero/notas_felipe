@@ -15,7 +15,7 @@
     <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Ícones Lucide (Versão fixa para estabilidade) -->
+    <!-- Ícones Lucide (Versão fixa) -->
     <script src="https://unpkg.com/lucide@0.263.1"></script>
 
     <style>
@@ -66,7 +66,7 @@
                 }
             }, [name, size, className]);
             
-            // Renderiza placeholder vazio se a lib não carregar para evitar crash
+            // Renderiza placeholder vazio se a lib não carregar
             return <span ref={ref} className="inline-flex items-center justify-center min-w-[18px] min-h-[18px]" />;
         };
 
@@ -267,7 +267,7 @@
                     const res = await fetch('/api/atualizar', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ code: codigo, field: field, value: cleanValue })
+                        body: JSON.stringify({ code: codigo, field, value: cleanValue })
                     });
                     
                     if (!res.ok) throw new Error('Falha ao salvar');
@@ -285,10 +285,11 @@
                 }
             };
 
-            // Filtragem e Stats
+            // Filtragem
             const getFilteredDisciplines = () => {
                 let filtered = [];
                 const searchLower = searchTerm.toLowerCase();
+
                 switch(activeTab) {
                     case 'aprovadas': filtered = disciplines.filter(d => d.status === 'APROVADO'); break;
                     case 'reprovadas': filtered = disciplines.filter(d => d.status === 'REPROVADO'); break;
@@ -296,12 +297,17 @@
                     case 'geral': filtered = [...disciplines]; break;
                     default: return [];
                 }
+
                 if (searchTerm) {
-                    filtered = filtered.filter(d => d.nome.toLowerCase().includes(searchLower) || d.codigo.toLowerCase().includes(searchLower));
+                    filtered = filtered.filter(d => 
+                        d.nome.toLowerCase().includes(searchLower) || 
+                        d.codigo.toLowerCase().includes(searchLower)
+                    );
                 }
                 return filtered;
             };
 
+            // Stats
             const stats = useMemo(() => {
                 return disciplines.reduce((acc, curr) => {
                     acc[curr.status] = (acc[curr.status] || 0) + 1;
