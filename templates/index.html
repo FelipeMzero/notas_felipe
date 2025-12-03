@@ -41,7 +41,6 @@
 <body>
     <div id="root"></div>
 
-    {% raw %}
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
         const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
@@ -58,7 +57,6 @@
         const LucideIcon = ({ name, size = 18, className = "" }) => {
             const ref = useRef(null);
             useEffect(() => {
-                // Verifica se a biblioteca carregou e se o ícone existe
                 if (window.lucide && window.lucide.icons && window.lucide.icons[name]) {
                     const svg = window.lucide.icons[name].toSvg({
                         class: className, width: size, height: size, "stroke-width": 2
@@ -66,7 +64,9 @@
                     if (ref.current) ref.current.innerHTML = svg;
                 }
             }, [name, size, className]);
-            return <span ref={ref} className="inline-flex items-center justify-center" />;
+            
+            // Renderiza placeholder vazio se a lib não carregar para evitar crash
+            return <span ref={ref} className="inline-flex items-center justify-center min-w-[18px] min-h-[18px]" />;
         };
 
         // --- COMPONENTES UI ---
@@ -106,7 +106,7 @@
         // Tabela de Disciplinas Reutilizável
         const DisciplineTable = ({ disciplines, onGradeChange }) => {
             if (disciplines.length === 0) {
-                return <div className="p-8 text-center text-slate-500">Nenhum dado carregado. Verifique se o servidor Python está rodando.</div>;
+                return <div className="p-8 text-center text-slate-500">Nenhum dado carregado.</div>;
             }
 
             return (
@@ -167,27 +167,22 @@
 
             // --- CARREGAR DADOS DO SERVIDOR (Apenas JSON) ---
             const loadData = async () => {
+                setIsLoading(true);
                 try {
-                    // Try-catch para lidar com URLs relativas em ambiente blob/file
-                    let response;
-                    try {
-                        response = await fetch('/api/dados');
-                    } catch (netErr) {
-                        throw new Error("Falha na conexão de rede ou URL inválida");
+                    const response = await fetch('/api/dados');
+                    
+                    if (!response.ok) {
+                        throw new Error(`Erro API: ${response.status}`);
                     }
-
-                    if (!response.ok) throw new Error('Erro na resposta da API');
                     
                     const data = await response.json();
                     setDisciplines(data);
                     setConnectionError(false);
-                    setIsLoading(false);
                 } catch (error) {
-                    console.error("Erro ao carregar do servidor:", error);
+                    // Sem console.error para evitar spam visual no console
                     setConnectionError(true);
+                } finally {
                     setIsLoading(false);
-                    // IMPORTANTE: Não fazemos fallback para dados locais. 
-                    // Se falhar, mostra erro para garantir consistência com o JSON.
                 }
             };
 
@@ -201,14 +196,13 @@
             useEffect(() => {
                 const interval = setInterval(() => {
                     const now = Date.now();
-                    // Se inativo por 5 min, recarrega a página completa
                     if (now - lastInteraction > 300000) {
                         window.location.reload();
-                    } else {
-                        // Se ativo, apenas busca dados silenciosamente para manter sync
-                        if (!connectionError) loadData();
+                    } else if (!connectionError) {
+                        // Tenta reconectar silenciosamente se estiver sem erro
+                        loadData(); 
                     }
-                }, 30000); // Polling a cada 30s
+                }, 30000); 
 
                 const updateInteraction = () => setLastInteraction(Date.now());
                 window.addEventListener('mousemove', updateInteraction);
@@ -251,7 +245,7 @@
                 const cleanValue = value.replace(',', '.');
                 if (cleanValue !== "" && isNaN(cleanValue)) return;
 
-                // 1. Atualização Otimista (Para UX fluida)
+                // 1. Atualização Otimista
                 setDisciplines(prev => prev.map(d => {
                     if (d.codigo === codigo) {
                         const updated = { ...d, [field]: cleanValue };
@@ -261,7 +255,7 @@
                     return d;
                 }));
 
-                // 2. Envia para o Servidor (Obrigatório)
+                // 2. Envia para o Servidor
                 try {
                     const res = await fetch('/api/atualizar', {
                         method: 'POST',
@@ -273,23 +267,20 @@
 
                     const result = await res.json();
                     if (result.success) {
-                        // 3. Atualiza com a confirmação real do servidor (JSON)
                         setDisciplines(prev => prev.map(d => 
                             d.codigo === codigo ? result.data : d
                         ));
+                        setConnectionError(false);
                     }
                 } catch (error) { 
-                    console.error("Erro crítico ao salvar:", error);
                     setConnectionError(true);
-                    // Opcional: Reverter alteração se falhar o save, para garantir consistência
                 }
             };
 
-            // Filtragem
+            // Filtragem e Stats
             const getFilteredDisciplines = () => {
                 let filtered = [];
                 const searchLower = searchTerm.toLowerCase();
-
                 switch(activeTab) {
                     case 'aprovadas': filtered = disciplines.filter(d => d.status === 'APROVADO'); break;
                     case 'reprovadas': filtered = disciplines.filter(d => d.status === 'REPROVADO'); break;
@@ -297,17 +288,12 @@
                     case 'geral': filtered = [...disciplines]; break;
                     default: return [];
                 }
-
                 if (searchTerm) {
-                    filtered = filtered.filter(d => 
-                        d.nome.toLowerCase().includes(searchLower) || 
-                        d.codigo.toLowerCase().includes(searchLower)
-                    );
+                    filtered = filtered.filter(d => d.nome.toLowerCase().includes(searchLower) || d.codigo.toLowerCase().includes(searchLower));
                 }
                 return filtered;
             };
 
-            // Stats
             const stats = useMemo(() => {
                 return disciplines.reduce((acc, curr) => {
                     acc[curr.status] = (acc[curr.status] || 0) + 1;
@@ -333,9 +319,9 @@
                 return (
                     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-red-400 space-y-4">
                         <LucideIcon name="WifiOff" size={48} />
-                        <h2 className="text-xl font-bold">Erro de Conexão com o Servidor Python</h2>
-                        <p className="text-slate-400">Verifique se o arquivo `app.py` está rodando.</p>
-                        <button onClick={loadData} className="px-4 py-2 bg-slate-800 rounded hover:bg-slate-700 text-white">Tentar Novamente</button>
+                        <h2 className="text-xl font-bold">Servidor Desconectado</h2>
+                        <p className="text-slate-400 text-center px-4">Não foi possível conectar ao servidor Python (app.py).<br/>Verifique se ele está rodando na porta 5000.</p>
+                        <button onClick={loadData} className="px-4 py-2 bg-slate-800 rounded hover:bg-slate-700 text-white border border-slate-600 transition">Tentar Novamente</button>
                     </div>
                 );
             }
@@ -343,8 +329,6 @@
             // --- RENDERIZAÇÃO ---
             return (
                 <div className="min-h-screen pb-10 bg-slate-950">
-                    
-                    {/* Header */}
                     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
                         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
                             <h1 className="text-2xl font-bold text-blue-500 flex items-center gap-2">
@@ -353,13 +337,11 @@
                                 {connectionError && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded ml-2 border border-red-500/30 flex items-center gap-1"><LucideIcon name="WifiOff" size={12}/> Offline</span>}
                             </h1>
                             <div className="flex gap-2">
-                                <a href="/exportar_csv" className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition">
-                                    Baixar Relatório (CSV)
+                                <a href="/exportar_csv" className="text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded flex items-center gap-2 transition border border-slate-700">
+                                    Baixar CSV
                                 </a>
                             </div>
                         </div>
-
-                        {/* Navegação de Abas */}
                         <div className="max-w-7xl mx-auto px-4 md:px-6 flex gap-1 overflow-x-auto no-scrollbar">
                             <TabButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} iconName="Home" label="Dashboard" />
                             <TabButton active={activeTab === 'aprovadas'} onClick={() => { setActiveTab('aprovadas'); setSearchTerm(''); }} iconName="CheckCircle" label="Aprovadas" count={stats['APROVADO']} />
@@ -370,9 +352,7 @@
                     </header>
 
                     <main className="max-w-7xl mx-auto p-4 md:p-6 fade-in">
-                        
-                        {/* CONTEÚDO: DASHBOARD */}
-                        {activeTab === 'dashboard' && (
+                        {activeTab === 'dashboard' ? (
                             <div className="space-y-8">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex justify-between">
@@ -388,7 +368,6 @@
                                         <div className="p-3 bg-slate-700/30 rounded-lg"><LucideIcon name="BookOpen" className="text-slate-400" size={24} /></div>
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                     <div className="md:col-span-1 bg-slate-800 p-6 rounded-xl border border-slate-700 h-80">
                                         <h3 className="text-lg font-semibold text-slate-200 mb-4">Visão Geral</h3>
@@ -424,10 +403,7 @@
                                     </div>
                                 </div>
                             </div>
-                        )}
-
-                        {/* CONTEÚDO: LISTAS */}
-                        {activeTab !== 'dashboard' && (
+                        ) : (
                             <div className="space-y-6 fade-in">
                                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800 p-4 rounded-lg border border-slate-700">
                                     <div>
@@ -450,6 +426,5 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-    {% endraw %}
 </body>
 </html>
