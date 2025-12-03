@@ -26,15 +26,30 @@ def after_request(response):
 
 # --- LÓGICA DE NEGÓCIO ---
 
+def safe_float(valor):
+    """
+    Converte qualquer valor para float de forma segura, 
+    aceitando tanto ponto (8.5) quanto vírgula (8,5).
+    Retorna 0.0 se a conversão falhar.
+    """
+    try:
+        if valor is None or valor == "":
+            return 0.0
+        # Converte para string, troca vírgula por ponto e converte para float
+        return float(str(valor).replace(',', '.'))
+    except (ValueError, TypeError):
+        return 0.0
+
 def calcular_status(n1, n2, n3, rec=0.0):
     """
     Calcula a média e o status.
     Regra: Recuperação substitui a menor nota das 3, se for maior que ela.
     """
-    try:
-        n1, n2, n3, rec = float(n1), float(n2), float(n3), float(rec)
-    except (ValueError, TypeError):
-        n1 = n2 = n3 = rec = 0.0
+    # Garante que todas as entradas sejam floats válidos
+    n1 = safe_float(n1)
+    n2 = safe_float(n2)
+    n3 = safe_float(n3)
+    rec = safe_float(rec)
         
     notas = [n1, n2, n3]
     
@@ -103,8 +118,8 @@ def carregar_dados():
         while len(notas_salvas) < 4:
             notas_salvas.append(0.0)
             
-        # Garante que são floats
-        notas_salvas = [float(x) for x in notas_salvas[:4]]
+        # Garante que são floats usando a função segura
+        notas_salvas = [safe_float(x) for x in notas_salvas[:4]]
             
         item = disc.copy()
         item['n1'] = notas_salvas[0]
@@ -134,8 +149,8 @@ def salvar_notas_json(codigo, n1, n2, n3, rec):
     else:
         historico = {}
         
-    # Atualiza a disciplina específica
-    historico[codigo] = [float(n1), float(n2), float(n3), float(rec)]
+    # Atualiza a disciplina específica (garantindo float)
+    historico[codigo] = [safe_float(n1), safe_float(n2), safe_float(n3), safe_float(rec)]
     
     # Escreve no disco
     with open(ARQUIVO_NOTAS, 'w', encoding='utf-8') as f:
@@ -172,12 +187,8 @@ def atualizar_nota():
         if not disciplina_alvo:
             return jsonify({"error": "Disciplina não encontrada"}), 404
 
-        # 2. Tratamento do valor recebido
-        if valor == "" or valor is None:
-            novo_valor = 0.0
-        else:
-            # Substitui vírgula por ponto e converte
-            novo_valor = float(str(valor).replace(',', '.'))
+        # 2. Tratamento do valor recebido usando safe_float
+        novo_valor = safe_float(valor)
         
         # Atualiza o campo no objeto em memória
         disciplina_alvo[campo] = novo_valor
